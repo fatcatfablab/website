@@ -3,10 +3,12 @@
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
-  copyFileSync,
+  existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -41,27 +43,48 @@ const publicSlugs = [
 ];
 
 const protectedSlugs = ['member-portal', 'membership2'];
+const generatedTargets = [
+  'src/data/pages.json',
+  'src/data/navigation.json',
+  'src/data/redirects.json',
+  'src/data/site.json',
+  'private-content/protected-pages.json',
+  'public/assets',
+];
 
 const readJson = (relativePath) =>
   JSON.parse(readFileSync(join(root, relativePath), 'utf8'));
 
-const writeJson = (relativePath, value, mode) => {
-  const path = join(root, relativePath);
+function writeJsonAt(baseDirectory, relativePath, value, mode) {
+  const path = join(baseDirectory, relativePath);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
   if (mode) chmodSync(path, mode);
-};
+}
 
 const report = readJson('research/capture-report.json');
 const assetManifest = readJson('research/assets/manifest.json');
-const reportBySlug = new Map(report.pages.map((page) => [page.slug, page]));
+if (!Array.isArray(report.pages) || !report.site?.template) {
+  throw new Error('The capture report is incomplete');
+}
+if (!Array.isArray(assetManifest.assets) || assetManifest.assets.length === 0) {
+  throw new Error('The asset manifest is incomplete');
+}
 
-const assetByPathname = new Map(
-  assetManifest.assets.map((asset) => {
-    const url = new URL(asset.sourceUrl);
-    return [decodeURIComponent(url.pathname).replaceAll('+', ' '), asset];
-  }),
-);
+const reportBySlug = new Map(report.pages.map((page) => [page.slug, page]));
+const assetByPathname = new Map();
+for (const asset of assetManifest.assets) {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(asset.sourceUrl).pathname).replaceAll('+', ' ');
+  } catch {
+    throw new Error('An archived asset has an invalid source URL');
+  }
+  if (assetByPathname.has(pathname)) {
+    throw new Error('The asset manifest contains a duplicate source pathname');
+  }
+  assetByPathname.set(pathname, asset);
+}
 
 function localAssetForUrl(sourceUrl) {
   const normalized = sourceUrl.startsWith('//') ? `https:${sourceUrl}` : sourceUrl;
@@ -212,15 +235,23 @@ const navigation = {
 };
 
 const firstPublicSource = loadCapturedPage('about');
+const homeSource = loadCapturedPage('home');
 const website = firstPublicSource.website;
-const location = website.location;
+const location = website?.location;
+if (!website || !location || !homeSource.collection) {
+  throw new Error('Required site settings are missing from the public capture');
+}
 const analyticsIds = [
   ...new Set(report.pages.flatMap((page) => page.public?.analyticsIds ?? [])),
 ];
+const faviconAsset = assetManifest.assets.find((asset) =>
+  basename(asset.localPath).endsWith('-favicon.ico'),
+);
+if (!faviconAsset) throw new Error('The archived favicon is unavailable');
 
 const site = {
   title: website.siteTitle,
-  fullTitle: loadCapturedPage('home').collection.title,
+  fullTitle: homeSource.collection.title,
   description: website.siteDescription,
   primaryDomain: website.primaryDomain,
   address: {
@@ -236,10 +267,7 @@ const site = {
     .filter((account) => account.iconEnabled)
     .map((account) => account.profileUrl),
   logoAsset: localAssetForUrl(website.logoImageUrl),
-  faviconAsset: `/assets/${basename(
-    assetManifest.assets.find((asset) => basename(asset.localPath).endsWith('-favicon.ico'))
-      ?.localPath ?? '',
-  )}`,
+  faviconAsset: `/assets/${basename(faviconAsset.localPath)}`,
   locale: website.language,
   timezone: website.timeZone,
   analyticsIds,
@@ -276,31 +304,110 @@ const protectedPages = protectedSlugs.map((slug) => {
   return normalizeCollection(source.collection, source.mainContent, undefined);
 });
 
-const publicAssetsDirectory = join(root, 'public/assets');
-rmSync(publicAssetsDirectory, { recursive: true, force: true });
-mkdirSync(publicAssetsDirectory, { recursive: true });
+if (
+  protectedPages.length !== 2 ||
+  new Set(protectedPages.map(({ slug }) => slug)).size !== 2
+) {
+  throw new Error('The protected page set must contain two unique isolated records');
+}
 
-for (const asset of assetManifest.assets) {
-  const source = join(root, asset.localPath);
-  const destination = join(publicAssetsDirectory, basename(asset.localPath));
-  if (asset.status !== 200 || !statSync(source).isFile()) {
+const validatedAssets = assetManifest.assets.map((asset) => {
+  const filename = basename(asset.localPath ?? '');
+  const source = resolve(root, asset.localPath ?? '');
+  const archiveRoot = resolve(root, 'research/assets');
+  if (!filename || (source !== archiveRoot && !source.startsWith(`${archiveRoot}/`))) {
+    throw new Error('An archived asset path is invalid');
+  }
+  if (asset.status !== 200 || !existsSync(source) || !statSync(source).isFile()) {
     throw new Error('An archived asset is unavailable');
   }
-  const digest = createHash('sha256').update(readFileSync(source)).digest('hex');
+  const bytes = readFileSync(source);
+  if (typeof asset.bytes === 'number' && bytes.length !== asset.bytes) {
+    throw new Error('An archived asset failed size validation');
+  }
+  const digest = createHash('sha256').update(bytes).digest('hex');
   if (digest !== asset.sha256) throw new Error('An archived asset failed integrity validation');
-  copyFileSync(source, destination);
+  return { filename, bytes };
+});
+
+if (new Set(validatedAssets.map(({ filename }) => filename)).size !== validatedAssets.length) {
+  throw new Error('The asset manifest contains duplicate output filenames');
 }
 
-if (readdirSync(publicAssetsDirectory).length !== assetManifest.assets.length) {
-  throw new Error('The public asset migration must contain every archived file');
+const serializedOutputs = new Map([
+  ['src/data/pages.json', pages],
+  ['src/data/navigation.json', navigation],
+  ['src/data/redirects.json', redirects],
+  ['src/data/site.json', site],
+  ['private-content/protected-pages.json', protectedPages],
+]);
+
+function installStagedOutputs(stagingRoot) {
+  const backupRoot = mkdtempSync(join(root, '.generate-site-content-backup-'));
+  const installed = [];
+  try {
+    for (const relativePath of generatedTargets) {
+      const staged = join(stagingRoot, relativePath);
+      const destination = join(root, relativePath);
+      const backup = join(backupRoot, relativePath);
+      const hadOriginal = existsSync(destination);
+
+      if (hadOriginal) {
+        mkdirSync(dirname(backup), { recursive: true });
+        renameSync(destination, backup);
+      }
+      try {
+        mkdirSync(dirname(destination), { recursive: true });
+        renameSync(staged, destination);
+      } catch (error) {
+        if (hadOriginal && existsSync(backup)) renameSync(backup, destination);
+        throw error;
+      }
+      installed.push({ destination, backup, hadOriginal });
+    }
+  } catch (error) {
+    for (const { destination, backup, hadOriginal } of installed.reverse()) {
+      rmSync(destination, { recursive: true, force: true });
+      if (hadOriginal && existsSync(backup)) {
+        mkdirSync(dirname(destination), { recursive: true });
+        renameSync(backup, destination);
+      }
+    }
+    throw error;
+  } finally {
+    rmSync(backupRoot, { recursive: true, force: true });
+  }
 }
 
-writeJson('src/data/pages.json', pages);
-writeJson('src/data/navigation.json', navigation);
-writeJson('src/data/redirects.json', redirects);
-writeJson('src/data/site.json', site);
-writeJson('private-content/protected-pages.json', protectedPages, 0o600);
+const stagingRoot = mkdtempSync(join(root, '.generate-site-content-stage-'));
+try {
+  for (const [relativePath, value] of serializedOutputs) {
+    writeJsonAt(
+      stagingRoot,
+      relativePath,
+      value,
+      relativePath.startsWith('private-content/') ? 0o600 : undefined,
+    );
+  }
+
+  const stagedAssetsDirectory = join(stagingRoot, 'public/assets');
+  mkdirSync(stagedAssetsDirectory, { recursive: true });
+  for (const { filename, bytes } of validatedAssets) {
+    writeFileSync(join(stagedAssetsDirectory, filename), bytes);
+  }
+
+  if (readdirSync(stagedAssetsDirectory).length !== validatedAssets.length) {
+    throw new Error('The staged public asset migration is incomplete');
+  }
+  for (const relativePath of serializedOutputs.keys()) {
+    JSON.parse(readFileSync(join(stagingRoot, relativePath), 'utf8'));
+  }
+
+  installStagedOutputs(stagingRoot);
+} finally {
+  rmSync(stagingRoot, { recursive: true, force: true });
+}
 
 console.log(
-  `Generated ${pages.length} public pages, ${protectedPages.length} isolated protected records, and ${assetManifest.assets.length} local assets.`,
+  `Generated ${pages.length} public pages, ${protectedPages.length} isolated protected records, and ${validatedAssets.length} local assets.`,
 );

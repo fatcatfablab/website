@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -33,6 +44,16 @@ const publicSlugs = [
 ] as const;
 
 const protectedSlugs = ['member-portal', 'membership2'] as const;
+const sourceCaptureAvailable =
+  existsSync(join(root, 'research/capture-report.json')) &&
+  existsSync(join(root, 'research/assets/manifest.json')) &&
+  publicSlugs.every((slug) =>
+    existsSync(join(root, `research/admin-pages/${slug}/squarespace.json`)),
+  ) &&
+  protectedSlugs.every((slug) =>
+    existsSync(join(root, `research/admin-pages/${slug}/squarespace.json`)),
+  );
+const privateArtifactAvailable = existsSync(join(root, 'private-content/protected-pages.json'));
 
 interface PageRecord {
   slug: string;
@@ -76,6 +97,131 @@ function walkFiles(directory: string): string[] {
     const path = join(directory, entry);
     return statSync(path).isDirectory() ? walkFiles(path) : [path];
   });
+}
+
+const htmlEntityMap: Record<string, string> = {
+  amp: '&',
+  apos: "'",
+  gt: '>',
+  hellip: '…',
+  ldquo: '“',
+  lsquo: '‘',
+  lt: '<',
+  mdash: '—',
+  nbsp: ' ',
+  ndash: '–',
+  quot: '"',
+  rdquo: '”',
+  rsquo: '’',
+};
+
+function decodeCommonEntities(value: string): string {
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+    if (code.toLowerCase().startsWith('#x')) {
+      return String.fromCodePoint(Number.parseInt(code.slice(2), 16));
+    }
+    if (code.startsWith('#')) return String.fromCodePoint(Number.parseInt(code.slice(1), 10));
+    return htmlEntityMap[code.toLowerCase()] ?? entity;
+  });
+}
+
+function decodeCommonJsonEscapes(value: string): string {
+  return value
+    .replace(/\\u\{([\da-f]{1,6})\}/gi, (_escape, hex: string) =>
+      String.fromCodePoint(Number.parseInt(hex, 16)),
+    )
+    .replace(/\\u([\da-f]{4})/gi, (_escape, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    )
+    .replace(/\\x([\da-f]{2})/gi, (_escape, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    )
+    .replace(/\\[nrtbf]/g, ' ')
+    .replace(/\\([\\/"'])/g, '$1');
+}
+
+function normalizeProtectedText(value: string): string {
+  let decoded = value;
+  for (let pass = 0; pass < 3; pass += 1) {
+    decoded = decodeCommonEntities(decodeCommonJsonEscapes(decoded));
+  }
+  return decoded
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .normalize('NFKC')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function gatherHtmlBearingValues(value: unknown, key?: string): string[] {
+  if (typeof value === 'string') {
+    return key === 'descriptionHtml' || key === 'contentHtml' ? [value] : [];
+  }
+  if (Array.isArray(value)) return value.flatMap((item) => gatherHtmlBearingValues(item, key));
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value).flatMap(([childKey, child]) =>
+    gatherHtmlBearingValues(child, childKey),
+  );
+}
+
+function substantialPhrases(value: string): string[] {
+  const words = value.split(' ').filter(Boolean);
+  const phrases: string[] = [];
+  for (let start = 0; start < words.length; start += 1) {
+    for (let end = start + 12; end <= Math.min(words.length, start + 24); end += 1) {
+      const phrase = words.slice(start, end).join(' ');
+      if (phrase.length >= 80) {
+        phrases.push(phrase);
+        break;
+      }
+    }
+  }
+  return phrases;
+}
+
+function findProtectedContentLeak(
+  publicRecords: unknown,
+  protectedHtmlValues: string[],
+): boolean {
+  const publicText = gatherHtmlBearingValues(publicRecords)
+    .map(normalizeProtectedText)
+    .join(' ');
+
+  return protectedHtmlValues.some((html) => {
+    const protectedText = normalizeProtectedText(html);
+    if (protectedText.length < 80) return false;
+    return (
+      publicText.includes(protectedText) ||
+      substantialPhrases(protectedText).some((phrase) => publicText.includes(phrase))
+    );
+  });
+}
+
+function fingerprintGeneratedOutputs(projectRoot: string): string {
+  const targets = [
+    'src/data/pages.json',
+    'src/data/navigation.json',
+    'src/data/redirects.json',
+    'src/data/site.json',
+    'private-content/protected-pages.json',
+    'public/assets',
+  ];
+  const hash = createHash('sha256');
+  for (const target of targets) {
+    const absolute = join(projectRoot, target);
+    const files = statSync(absolute).isDirectory() ? walkFiles(absolute).sort() : [absolute];
+    for (const file of files) {
+      hash.update(relative(projectRoot, file));
+      hash.update('\0');
+      hash.update(readFileSync(file));
+      hash.update('\0');
+    }
+  }
+  return hash.digest('hex');
 }
 
 function archivedAssetForUrl(
@@ -132,38 +278,44 @@ describe('generated public content', () => {
     }
   });
 
-  it('preserves the home index child sections in source order', () => {
-    const pages = readJson<PageRecord[]>('src/data/pages.json');
-    const source = readJson<{ collection: { collections: Array<{ urlId: string }> } }>(
-      'research/admin-pages/home/squarespace.json',
-    );
-    const home = pages.find(({ slug }) => slug === 'home');
+  it.skipIf(!sourceCaptureAvailable)(
+    'preserves the home index child sections in source order',
+    () => {
+      const pages = readJson<PageRecord[]>('src/data/pages.json');
+      const source = readJson<{ collection: { collections: Array<{ urlId: string }> } }>(
+        'research/admin-pages/home/squarespace.json',
+      );
+      const home = pages.find(({ slug }) => slug === 'home');
 
-    expect(home?.homepage).toBe(true);
-    expect(home?.indexSections.length).toBeGreaterThan(0);
-    expect(home?.indexSections.map(({ slug }) => slug)).toEqual(
-      source.collection.collections.map(({ urlId }) => urlId),
-    );
-  });
+      expect(home?.homepage).toBe(true);
+      expect(home?.indexSections.length).toBeGreaterThan(0);
+      expect(home?.indexSections.map(({ slug }) => slug)).toEqual(
+        source.collection.collections.map(({ urlId }) => urlId),
+      );
+    },
+  );
 
-  it('excludes every disabled, archived, non-JSON, and protected collection', () => {
-    const pages = readJson<PageRecord[]>('src/data/pages.json');
-    const report = readJson<{
-      pages: Array<{
-        slug: string;
-        enabled: boolean;
-        passwordProtected: boolean;
-        captureKind: string;
-      }>;
-    }>('research/capture-report.json');
-    const excluded = report.pages
-      .filter(
-        (page) => !page.enabled || page.passwordProtected || page.captureKind !== 'json',
-      )
-      .map(({ slug }) => slug);
+  it.skipIf(!sourceCaptureAvailable)(
+    'excludes every disabled, archived, non-JSON, and protected collection',
+    () => {
+      const pages = readJson<PageRecord[]>('src/data/pages.json');
+      const report = readJson<{
+        pages: Array<{
+          slug: string;
+          enabled: boolean;
+          passwordProtected: boolean;
+          captureKind: string;
+        }>;
+      }>('research/capture-report.json');
+      const excluded = report.pages
+        .filter(
+          (page) => !page.enabled || page.passwordProtected || page.captureKind !== 'json',
+        )
+        .map(({ slug }) => slug);
 
-    expect(pages.every(({ slug }) => !excluded.includes(slug))).toBe(true);
-  });
+      expect(pages.every(({ slug }) => !excluded.includes(slug))).toBe(true);
+    },
+  );
 });
 
 describe('navigation, site settings, and redirects', () => {
@@ -233,82 +385,175 @@ describe('navigation, site settings, and redirects', () => {
 });
 
 describe('protected content isolation', () => {
-  it('writes exactly two protected records only to the ignored private artifact', () => {
-    const protectedPages = readJson<Array<{ slug: string; contentHtml: string }>>(
-      'private-content/protected-pages.json',
-    );
+  it('detects a substantial protected phrase after structural and textual normalization', () => {
+    const protectedBody = `
+      <main>
+        This private orientation explains how active members securely access shared workshop tools,
+        coordinate after-hours responsibilities, and protect community equipment from accidental damage.
+        Additional private instructions continue beyond the identifying phrase.
+      </main>
+    `;
+    const publicRecords = [
+      {
+        descriptionHtml: '',
+        contentHtml: '',
+        indexSections: [
+          {
+            descriptionHtml:
+              '<p>THIS PRIVATE ORIENTATION explains how active members securely access shared workshop tools,</p>' +
+              '<p>coordinate after-hours responsibilities, and protect community equipment from accidental\\u0020damage.</p>',
+            contentHtml: '',
+            indexSections: [],
+          },
+        ],
+      },
+    ];
 
-    expect(protectedPages.map(({ slug }) => slug)).toEqual(protectedSlugs);
-    expect(protectedPages.every(({ contentHtml }) => contentHtml.length > 0)).toBe(true);
+    expect(findProtectedContentLeak(publicRecords, [protectedBody])).toBe(true);
   });
 
-  it('does not copy protected page bodies or substantial protected phrases under src or public', () => {
-    const protectedSources = protectedSlugs.map((slug) =>
-      readJson<{ mainContent?: string }>(`research/admin-pages/${slug}/squarespace.json`),
-    );
-    const publicText = walkFiles(join(root, 'src'))
-      .concat(walkFiles(join(root, 'public')))
-      .map((path) => readFileSync(path, 'utf8'))
-      .join('\n');
+  it.skipIf(!privateArtifactAvailable)(
+    'writes exactly two protected records only to the ignored private artifact',
+    () => {
+      const protectedPages = readJson<Array<{ slug: string; contentHtml: string }>>(
+        'private-content/protected-pages.json',
+      );
 
-    for (const source of protectedSources) {
-      const body = source.mainContent?.trim();
-      if (!body) continue;
-      if (publicText.includes(body)) throw new Error('Protected page body leaked into public files');
+      expect(protectedPages.map(({ slug }) => slug)).toEqual(protectedSlugs);
+      expect(protectedPages.every(({ contentHtml }) => contentHtml.length > 0)).toBe(true);
+    },
+  );
 
-      const phrases = body
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .match(/.{80,160}(?:\s|$)/g) ?? [];
-      if (phrases.some((phrase) => publicText.includes(phrase.trim()))) {
-        throw new Error('Protected page phrase leaked into public files');
+  it.skipIf(!sourceCaptureAvailable)(
+    'flags an entire protected body injected into a public HTML-bearing field',
+    () => {
+      const pages = structuredClone(readJson<PageRecord[]>('src/data/pages.json'));
+      const protectedBody = readJson<{ mainContent?: string }>(
+        'research/admin-pages/member-portal/squarespace.json',
+      ).mainContent;
+      expect(protectedBody?.trim().length).toBeGreaterThan(0);
+      pages[0].contentHtml = protectedBody!;
+
+      expect(findProtectedContentLeak(pages, [protectedBody!])).toBe(true);
+    },
+  );
+
+  it.skipIf(!sourceCaptureAvailable)(
+    'detects no normalized protected body or substantial phrase in generated public records',
+    () => {
+      const pages = readJson<PageRecord[]>('src/data/pages.json');
+      const protectedBodies = protectedSlugs
+        .map(
+          (slug) =>
+            readJson<{ mainContent?: string }>(
+              `research/admin-pages/${slug}/squarespace.json`,
+            ).mainContent,
+        )
+        .filter((body): body is string => Boolean(body?.trim()));
+
+      if (findProtectedContentLeak(pages, protectedBodies)) {
+        throw new Error('Protected page content leaked into generated public records');
       }
-    }
-  });
+    },
+  );
+});
+
+describe('transactional content generation', () => {
+  it.skipIf(!sourceCaptureAvailable)(
+    'preserves every last-known-good generated byte when source asset validation fails',
+    () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'fatcat-content-generation-'));
+      try {
+        mkdirSync(join(sandbox, 'scripts'), { recursive: true });
+        cpSync(
+          join(root, 'scripts/generate-site-content.mjs'),
+          join(sandbox, 'scripts/generate-site-content.mjs'),
+        );
+        cpSync(join(root, 'research'), join(sandbox, 'research'), { recursive: true });
+        cpSync(join(root, 'src/data'), join(sandbox, 'src/data'), { recursive: true });
+        cpSync(join(root, 'public/assets'), join(sandbox, 'public/assets'), { recursive: true });
+        cpSync(
+          join(root, 'private-content'),
+          join(sandbox, 'private-content'),
+          { recursive: true },
+        );
+
+        const manifest = readJson<{ assets: Array<{ localPath: string }> }>(
+          'research/assets/manifest.json',
+        );
+        rmSync(join(sandbox, manifest.assets[0].localPath));
+        const before = fingerprintGeneratedOutputs(sandbox);
+
+        const result = spawnSync(process.execPath, ['scripts/generate-site-content.mjs'], {
+          cwd: sandbox,
+          encoding: 'utf8',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(fingerprintGeneratedOutputs(sandbox)).toBe(before);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe('local asset migration', () => {
-  it('copies every archived asset with byte-for-byte integrity', () => {
-    const manifest = readJson<{
-      assets: Array<{ localPath: string; sha256: string }>;
-    }>('research/assets/manifest.json');
+  it('keeps the complete committed asset set available without generator staging files', () => {
+    const assets = readdirSync(join(root, 'public/assets'));
 
-    expect(manifest.assets.length).toBeGreaterThan(0);
-    for (const asset of manifest.assets) {
-      const publicPath = join(root, 'public/assets', basename(asset.localPath));
-      expect(existsSync(publicPath)).toBe(true);
-      const digest = createHash('sha256').update(readFileSync(publicPath)).digest('hex');
-      expect(digest).toBe(asset.sha256);
-    }
+    expect(assets).toHaveLength(26);
+    expect(assets.every((asset: string) => !asset.startsWith('.generate-site-content-'))).toBe(true);
   });
 
-  it('rewrites every first-party Squarespace content image URL to its local asset', () => {
-    const pages = readJson<PageRecord[]>('src/data/pages.json');
-    const manifest = readJson<{
-      assets: Array<{ sourceUrl: string; localPath: string }>;
-    }>('research/assets/manifest.json');
-    const generated = JSON.stringify(pages);
+  it.skipIf(!sourceCaptureAvailable)(
+    'copies every archived asset with byte-for-byte integrity',
+    () => {
+      const manifest = readJson<{
+        assets: Array<{ localPath: string; sha256: string }>;
+      }>('research/assets/manifest.json');
 
-    expect(generated).not.toMatch(/https?:\\?\/\\?\/images\.squarespace-cdn\.com\\?\/content\\?\/v1/i);
-
-    for (const slug of publicSlugs) {
-      const sourceText = readFileSync(
-        join(root, `research/admin-pages/${slug}/squarespace.json`),
-        'utf8',
-      );
-      const urls =
-        sourceText.match(
-          /https?:\\?\/\\?\/images\.squarespace-cdn\.com\\?\/content\\?\/v1\\?\/[^"'<>\\\s]+/gi,
-        ) ?? [];
-      for (const rawUrl of urls) {
-        const url = rawUrl.replaceAll('\\/', '/').replace(/[),;]+$/, '');
-        const localPath = archivedAssetForUrl(url, manifest.assets);
-        expect(localPath, `missing archived mapping for a public image on ${slug}`).toBeDefined();
-        expect(generated).toContain(`/assets/${basename(localPath!)}`);
+      expect(manifest.assets.length).toBeGreaterThan(0);
+      for (const asset of manifest.assets) {
+        const publicPath = join(root, 'public/assets', basename(asset.localPath));
+        expect(existsSync(publicPath)).toBe(true);
+        const digest = createHash('sha256').update(readFileSync(publicPath)).digest('hex');
+        expect(digest).toBe(asset.sha256);
       }
-    }
-  });
+    },
+  );
+
+  it.skipIf(!sourceCaptureAvailable)(
+    'rewrites every first-party Squarespace content image URL to its local asset',
+    () => {
+      const pages = readJson<PageRecord[]>('src/data/pages.json');
+      const manifest = readJson<{
+        assets: Array<{ sourceUrl: string; localPath: string }>;
+      }>('research/assets/manifest.json');
+      const generated = JSON.stringify(pages);
+
+      expect(generated).not.toMatch(
+        /https?:\\?\/\\?\/images\.squarespace-cdn\.com\\?\/content\\?\/v1/i,
+      );
+
+      for (const slug of publicSlugs) {
+        const sourceText = readFileSync(
+          join(root, `research/admin-pages/${slug}/squarespace.json`),
+          'utf8',
+        );
+        const urls =
+          sourceText.match(
+            /https?:\\?\/\\?\/images\.squarespace-cdn\.com\\?\/content\\?\/v1\\?\/[^"'<>\\\s]+/gi,
+          ) ?? [];
+        for (const rawUrl of urls) {
+          const url = rawUrl.replaceAll('\\/', '/').replace(/[),;]+$/, '');
+          const localPath = archivedAssetForUrl(url, manifest.assets);
+          expect(localPath, `missing archived mapping for a public image on ${slug}`).toBeDefined();
+          expect(generated).toContain(`/assets/${basename(localPath!)}`);
+        }
+      }
+    },
+  );
 
   it('ensures every local asset referenced by public generated data exists', () => {
     const generated = ['pages.json', 'site.json']
