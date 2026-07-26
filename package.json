@@ -1,0 +1,21 @@
+{
+  "name": "fatcat-fablab-self-hosted",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.0.2",
+    "astro": "^7.1.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "vitest": "^4.1.10"
+  }
+}
