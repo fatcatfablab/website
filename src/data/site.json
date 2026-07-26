@@ -1,0 +1,40 @@
+{
+  "title": "fat cat FAB LAB",
+  "fullTitle": "Fat Cat Fab Lab - NYC Hackerspace",
+  "description": "<p>Laser Cutting, CNC Routing, 3D Printing, Tools &nbsp;&amp; Workshops for makers. Play, learn, and build things at the New York City Hackerspace &amp;&nbsp;Makerspace Fat Cat Fab Lab.</p>",
+  "primaryDomain": "fatcatfablab.org",
+  "address": {
+    "title": "Fat Cat Fab Lab",
+    "line1": "224 West 4th Street",
+    "line2": "New York, NY, 10014",
+    "country": "",
+    "latitude": 40.7338569,
+    "longitude": -74.00307399999997
+  },
+  "email": "info@fatcatfablab.org",
+  "socialUrls": [
+    "http://instagram.com/fatcatfablab",
+    "https://www.facebook.com/fatcatFABLAB",
+    "https://twitter.com/fatcatFABLAB"
+  ],
+  "logoAsset": "/assets/e07c9f0e7006-Fat-Cat-Fab-Lab---Logo-Final.png",
+  "faviconAsset": "/assets/097091c1b730-favicon.ico",
+  "locale": "en-US",
+  "timezone": "America/New_York",
+  "analyticsIds": [
+    "UA-83126816-1"
+  ],
+  "template": {
+    "family": "Bedford",
+    "variant": "Anya & Deven",
+    "version": "7.0"
+  },
+  "provenance": {
+    "platform": "Squarespace",
+    "siteId": "55b820ace4b050d4e61929e6",
+    "internalUrl": "https://fatcatfablab.squarespace.com",
+    "templateFamily": "Bedford",
+    "templateVariant": "Anya & Deven",
+    "templateVersion": "7.0"
+  }
+}

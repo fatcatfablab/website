@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "from": "/classes",
+      "to": "/classes-events",
+      "status": 301
+    }
+  ],
+  "squarespaceUrlMappings": []
+}

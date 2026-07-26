@@ -1,0 +1,54 @@
+{
+  "main": [
+    {
+      "label": "About",
+      "href": "/about"
+    },
+    {
+      "label": "Equipment",
+      "href": "/equipment-list"
+    },
+    {
+      "label": "FAQs",
+      "href": "/faqs"
+    },
+    {
+      "label": "Wiki",
+      "href": "https://wiki.fatcatfablab.org/wiki/Main_Page"
+    },
+    {
+      "label": "Classes & Events",
+      "href": "/classes-events"
+    },
+    {
+      "label": "Reservation Calendar",
+      "href": "/reservation-calendar"
+    },
+    {
+      "label": "Member Portal",
+      "href": "/member-portal"
+    },
+    {
+      "label": "Join",
+      "href": "/membership"
+    }
+  ],
+  "footer": [
+    {
+      "label": "Member portal",
+      "href": "/member-portal"
+    },
+    {
+      "label": "Equipment",
+      "href": "/equipment-list"
+    },
+    {
+      "label": "Calendar",
+      "href": "/calendar"
+    },
+    {
+      "label": "Contact",
+      "href": "/contact"
+    }
+  ]
+}
