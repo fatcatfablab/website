@@ -1,0 +1,11 @@
+---
+import HomePage from "../templates/HomePage.astro";
+import { getPublicPageBySlug } from "../lib/content";
+
+const page = getPublicPageBySlug("home");
+if (!page?.homepage) {
+  throw new Error("The generated public home page is unavailable");
+}
+---
+
+<HomePage page={page} />

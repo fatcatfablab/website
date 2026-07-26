@@ -1,0 +1,47 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageBanner from "../components/PageBanner.astro";
+import SquarespaceContent from "../components/SquarespaceContent.astro";
+import type { PublicPage } from "../lib/content";
+import "../styles/pages.css";
+
+interface Props {
+  page: PublicPage;
+}
+
+const { page } = Astro.props;
+const hasBanner = Boolean(page.mainImage || page.descriptionHtml.trim());
+const pageClass = hasBanner ? "standard-page has-page-banner" : "standard-page";
+const bodyClass = [
+  "transparent-header",
+  "banner-button-style-outline",
+  "banner-button-corner-style-square",
+  `collection-type-${page.type}`,
+  "collection-layout-default",
+  "mobile-style-available",
+  hasBanner ? "has-banner-image" : "",
+  "general-page",
+  "force-mobile-nav",
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<BaseLayout
+  title={page.title}
+  description={page.seo.description}
+  canonical={page.seo.canonical ?? page.path}
+  noindex={page.seo.noindex}
+  pageClass={pageClass}
+  bodyClass={bodyClass}
+>
+  {hasBanner && (
+    <PageBanner
+      image={page.mainImage ?? page.video?.fallbackImage}
+      video={page.video}
+      descriptionHtml={page.descriptionHtml}
+      label={page.title}
+    />
+  )}
+  <SquarespaceContent contentHtml={page.contentHtml} />
+</BaseLayout>

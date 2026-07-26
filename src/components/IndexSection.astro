@@ -1,0 +1,43 @@
+---
+import type { IndexSection as IndexSectionData } from "../lib/content";
+import PageBanner from "./PageBanner.astro";
+import SquarespaceContent from "./SquarespaceContent.astro";
+
+interface Props {
+  section: IndexSectionData;
+}
+
+const { section } = Astro.props;
+const hasContent = Boolean(section.contentHtml.trim());
+const hasBanner = Boolean(
+  section.mainImage ||
+    section.descriptionHtml.trim() ||
+    section.video?.fallbackImage ||
+    section.video?.url?.trim(),
+);
+---
+
+<section
+  id={section.slug}
+  class:list={["index-section", { empty: !hasContent }]}
+  data-url-id={section.slug}
+>
+  <div class="promoted-gallery-wrapper"></div>
+  {hasBanner && (
+    <PageBanner
+      image={section.mainImage}
+      video={section.video}
+      descriptionHtml={section.descriptionHtml}
+      allowBackgroundVideo={Boolean(section.video?.url?.trim())}
+      thumbnailId={`${section.slug}-thumbnail`}
+      label={section.title}
+    />
+  )}
+  <div class="index-section-wrapper page-content">
+    <SquarespaceContent
+      id={null}
+      className:list={["content-inner", { "has-content": hasContent }]}
+      contentHtml={section.contentHtml}
+    />
+  </div>
+</section>

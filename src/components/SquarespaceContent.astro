@@ -1,0 +1,16 @@
+---
+interface Props {
+  contentHtml: string;
+  id?: string | null;
+  className?: string;
+}
+
+const { contentHtml, id = "content", className = "" } = Astro.props;
+---
+
+<div
+  id={id}
+  class:list={["main-content", className]}
+  data-content-field="main-content"
+  set:html={contentHtml}
+></div>

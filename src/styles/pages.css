@@ -1,0 +1,188 @@
+/* Route-level additions required to render the captured Bedford page and index markup. */
+.standard-page,
+.home-page,
+.standard-page #content,
+.home-page #content,
+.index-section,
+.index-section-wrapper,
+.content-inner,
+.squarespace-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.standard-page {
+  width: 100%;
+  max-width: none !important;
+  padding: 0 !important;
+}
+
+.standard-page > .banner-thumbnail-wrapper {
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+}
+
+.has-page-banner #content,
+.home-page #content {
+  margin-top: 0;
+}
+
+.banner-thumbnail-wrapper {
+  position: relative;
+  width: 100%;
+  height: clamp(260px, 32vw, 470px);
+  overflow: hidden;
+  background: #090611;
+}
+
+.home-page .index-section:not(:first-child) > .banner-thumbnail-wrapper {
+  margin-top: 0;
+}
+
+.banner-thumbnail-wrapper .color-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgb(0 0 0 / 20%);
+}
+
+.banner-thumbnail-wrapper .thumbnail,
+.banner-thumbnail-wrapper .content-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.banner-thumbnail-wrapper .thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.banner-thumbnail-wrapper .background-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: max(100%, 177.78vh);
+  height: max(100%, 56.25vw);
+  min-width: 100%;
+  min-height: 100%;
+  border: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.banner-thumbnail-wrapper .desc-wrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  color: #fff;
+  text-align: center;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.banner-thumbnail-wrapper .desc-wrapper > :first-child,
+.banner-thumbnail-wrapper .desc-wrapper > :last-child {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.index-section-wrapper,
+.standard-page #content {
+  overflow-x: clip;
+}
+
+.index-section-wrapper .content-inner,
+.standard-page #content {
+  width: min(100%, 1020px);
+  margin-right: auto;
+  margin-left: auto;
+  padding: 70px clamp(20px, 5vw, 80px);
+}
+
+.index-section.empty .index-section-wrapper {
+  display: none;
+}
+
+.main-content iframe,
+.sqs-block iframe {
+  max-width: 100%;
+}
+
+.main-content img,
+.sqs-block img {
+  max-width: 100%;
+  height: auto;
+}
+
+.main-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.main-content,
+.main-content a,
+.sqs-block,
+.sqs-block a {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.sqs-row::after {
+  display: table;
+  clear: both;
+  content: "";
+}
+
+@media only screen and (max-width: 640px) {
+  .banner-thumbnail-wrapper {
+    height: clamp(250px, 75vw, 390px);
+  }
+
+  .banner-thumbnail-wrapper .desc-wrapper {
+    padding: 24px 20px;
+  }
+
+  .index-section-wrapper .content-inner,
+  .standard-page #content {
+    padding: 45px 20px;
+  }
+
+  .sqs-row .sqs-col-1,
+  .sqs-row .sqs-col-2,
+  .sqs-row .sqs-col-3,
+  .sqs-row .sqs-col-4,
+  .sqs-row .sqs-col-5,
+  .sqs-row .sqs-col-6,
+  .sqs-row .sqs-col-7,
+  .sqs-row .sqs-col-8,
+  .sqs-row .sqs-col-9,
+  .sqs-row .sqs-col-10,
+  .sqs-row .sqs-col-11,
+  .sqs-row .sqs-col-12 {
+    float: none;
+    width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .sqs-block-spacer {
+    display: none;
+  }
+}

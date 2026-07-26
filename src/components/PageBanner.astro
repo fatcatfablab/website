@@ -1,0 +1,91 @@
+---
+import type { ImageData, VideoData } from "../lib/content";
+
+interface Props {
+  image?: ImageData | null;
+  video?: VideoData | null;
+  descriptionHtml?: string;
+  allowBackgroundVideo?: boolean;
+  thumbnailId?: string;
+  label?: string;
+}
+
+const {
+  image = null,
+  video = null,
+  descriptionHtml = "",
+  allowBackgroundVideo = false,
+  thumbnailId = "thumbnail",
+  label = "",
+} = Astro.props;
+
+const fallbackImage = image ?? video?.fallbackImage ?? null;
+const focalX = fallbackImage?.focalPoint?.x ?? 0.5;
+const focalY = fallbackImage?.focalPoint?.y ?? 0.5;
+const objectPosition = `${focalX * 100}% ${focalY * 100}%`;
+const altText = (fallbackImage?.altHtml ?? "")
+  .replace(/<[^>]*>/g, " ")
+  .replace(/&nbsp;|&#160;/g, " ")
+  .replace(/&amp;/g, "&")
+  .replace(/\s+/g, " ")
+  .trim() || fallbackImage?.title || fallbackImage?.filename || "";
+
+function youtubeId(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl?.trim()) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.hostname === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] ?? null;
+    if (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) {
+      if (url.pathname === "/watch") return url.searchParams.get("v");
+      const [, kind, id] = url.pathname.split("/");
+      if ((kind === "embed" || kind === "shorts") && id) return id;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+const capturedVideoUrl = allowBackgroundVideo ? video?.url : null;
+const videoId = youtubeId(capturedVideoUrl);
+const videoSrc = videoId
+  ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&modestbranding=1`
+  : null;
+const hasDescription = Boolean(descriptionHtml.trim());
+---
+
+<div
+  class:list={["banner-thumbnail-wrapper", { "has-description": hasDescription }]}
+  data-content-field="main-image"
+>
+  <div class="color-overlay"></div>
+  <figure id={thumbnailId} class="thumbnail loading content-fill">
+    {fallbackImage?.src && (
+      <img
+        src={fallbackImage.src}
+        alt={altText}
+        class:list={[{ "custom-fallback-image": Boolean(videoSrc) }]}
+        data-image={fallbackImage.src}
+        data-image-dimensions={fallbackImage.originalSize ?? undefined}
+        data-image-focal-point={`${focalX},${focalY}`}
+        style={`object-position: ${objectPosition};`}
+      />
+    )}
+    {videoSrc && (
+      <iframe
+        class="background-video"
+        src={videoSrc}
+        title={`${label || altText || "Page"} background video`}
+        loading="eager"
+        tabindex="-1"
+        frameborder="0"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        referrerpolicy="strict-origin-when-cross-origin"
+        aria-hidden="true"
+      ></iframe>
+    )}
+  </figure>
+  {hasDescription && (
+    <div class="desc-wrapper" data-content-field="description" set:html={descriptionHtml}></div>
+  )}
+</div>

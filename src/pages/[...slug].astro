@@ -1,0 +1,21 @@
+---
+import HomePage from "../templates/HomePage.astro";
+import StandardPage from "../templates/StandardPage.astro";
+import { getPublicPageBySlug } from "../lib/content";
+
+const slug = Astro.params.slug ?? "";
+const page = getPublicPageBySlug(slug);
+const isValidPublicRoute = Boolean(
+  page &&
+    !slug.includes("/") &&
+    (slug === "home" ? page.homepage : !page.homepage),
+);
+
+if (!isValidPublicRoute) {
+  Astro.response.status = 404;
+}
+---
+
+{isValidPublicRoute && page && (
+  slug === "home" ? <HomePage page={page} /> : <StandardPage page={page} />
+)}
