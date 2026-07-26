@@ -94,6 +94,12 @@ describe("shared site chrome source contract", () => {
     expect(source(files.legacy)).toBe(source("research/styles/site.css"));
   });
 
+  it("does not minify the legacy stylesheet because its original LESS output contains browser-ignored selectors", () => {
+    const config = source("astro.config.mjs");
+
+    expect(config).toMatch(/cssMinify:\s*false/);
+  });
+
   it("imports legacy styling before local overrides and preserves the exact custom geometry", () => {
     const css = source(files.global);
 

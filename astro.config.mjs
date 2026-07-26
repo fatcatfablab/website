@@ -12,10 +12,3 @@ export default defineConfig({
     },
   },
 });
-
-    // browsers and PostCSS tolerate but Lightning CSS rejects while minifying.
-    // Keep the source byte-compatible and serve unminified CSS instead of
-    // mutating historical rules during migration.
-    build: { cssMinify: false },
-  },
-});
