@@ -3,12 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "npm@10.9.8",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=22.12.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": "10.9.8",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "start": "node ./dist/server/entry.mjs",
-    "test": "vitest run"
+    "readiness": "node ./scripts/check-readiness.mjs",
+    "secrets:generate": "node ./scripts/generate-deployment-secrets.mjs",
+    "test": "vitest run --fileParallelism=false --testTimeout=15000",
+    "test:packaging": "vitest run tests/packaging.test.ts",
+    "visual:parity": "node ./scripts/capture-visual-parity.mjs && python3 ./scripts/build-visual-comparisons.py"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.2",
@@ -16,6 +36,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
+    "@types/node": "^22.20.1",
     "vitest": "^4.1.10"
   }
 }

@@ -46,11 +46,29 @@ function youtubeId(rawUrl: string | null | undefined): string | null {
   return null;
 }
 
+function vimeoId(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl?.trim()) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.hostname === "vimeo.com" || url.hostname.endsWith(".vimeo.com")) {
+      return url.pathname.split("/").find((part) => /^\d+$/.test(part)) ?? null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 const capturedVideoUrl = allowBackgroundVideo ? video?.url : null;
 const videoId = youtubeId(capturedVideoUrl);
-const videoSrc = videoId
-  ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&modestbranding=1`
-  : null;
+const capturedVimeoId = vimeoId(capturedVideoUrl);
+const localVideoSrc = videoId === "hw-HQtzMvJQ" ? "/media/fcfl-home-hero.mp4" : null;
+const embedVideoSrc = capturedVimeoId
+  ? `https://player.vimeo.com/video/${capturedVimeoId}?background=1&autoplay=1&muted=1&loop=1&title=0&byline=0&portrait=0`
+  : videoId && !localVideoSrc
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&loop=1&playlist=${videoId}&playsinline=1&rel=0&modestbranding=1`
+    : null;
+const hasVideo = Boolean(localVideoSrc || embedVideoSrc);
 const hasDescription = Boolean(descriptionHtml.trim());
 ---
 
@@ -60,21 +78,34 @@ const hasDescription = Boolean(descriptionHtml.trim());
 >
   <div class="color-overlay"></div>
   <figure id={thumbnailId} class="thumbnail loading content-fill">
-    {fallbackImage?.src && (
+    {fallbackImage?.src && !hasVideo && (
       <img
         src={fallbackImage.src}
         alt={altText}
-        class:list={[{ "custom-fallback-image": Boolean(videoSrc) }]}
         data-image={fallbackImage.src}
         data-image-dimensions={fallbackImage.originalSize ?? undefined}
         data-image-focal-point={`${focalX},${focalY}`}
         style={`object-position: ${objectPosition};`}
       />
     )}
-    {videoSrc && (
+    {localVideoSrc && (
+      <video
+        class="background-video background-video-local"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        tabindex="-1"
+        aria-hidden="true"
+      >
+        <source src={localVideoSrc} type="video/mp4" />
+      </video>
+    )}
+    {embedVideoSrc && (
       <iframe
-        class="background-video"
-        src={videoSrc}
+        class="background-video background-video-embed"
+        src={embedVideoSrc}
         title={`${label || altText || "Page"} background video`}
         loading="eager"
         tabindex="-1"

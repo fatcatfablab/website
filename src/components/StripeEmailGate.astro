@@ -1,0 +1,35 @@
+---
+interface Props {
+  capturedId: string;
+  mode: "pricing-table" | "buy-button";
+}
+
+const { capturedId, mode } = Astro.props;
+const workerEndpoint = "https://stripe-create-session.fcfl.workers.dev";
+const publishableKey = "pk_live_0fsbswlS6keplxrWEjpLgPKy";
+const stripeLoader =
+  mode === "buy-button"
+    ? "https://js.stripe.com/v3/buy-button.js"
+    : "https://js.stripe.com/v3/pricing-table.js";
+---
+
+<script async src={stripeLoader} is:inline></script>
+<div
+  class="fcfl-stripe-email-gate"
+  data-fcfl-email-gate
+  data-endpoint={workerEndpoint}
+  data-publishable-key={publishableKey}
+  data-captured-id={capturedId}
+  data-mode={mode}
+>
+  <form class="fcfl-stripe-email-form" novalidate>
+    <label>
+      Email
+      <input name="email" type="email" required autocomplete="email" inputmode="email" />
+    </label>
+    <button type="submit">Continue</button>
+  </form>
+  <p class="fcfl-stripe-status" data-fcfl-email-status role="status" aria-live="polite"></p>
+  <div class="fcfl-stripe-widget" data-fcfl-stripe-mount></div>
+</div>
+<script src="/scripts/stripe-email-gate.js" is:inline defer></script>

@@ -73,7 +73,8 @@ if (!Array.isArray(assetManifest.assets) || assetManifest.assets.length === 0) {
 
 const reportBySlug = new Map(report.pages.map((page) => [page.slug, page]));
 const assetByPathname = new Map();
-for (const asset of assetManifest.assets) {
+const archiveRoot = resolve(root, 'research/assets');
+const validatedManifestAssets = assetManifest.assets.map((asset) => {
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(asset.sourceUrl).pathname).replaceAll('+', ' ');
@@ -83,33 +84,98 @@ for (const asset of assetManifest.assets) {
   if (assetByPathname.has(pathname)) {
     throw new Error('The asset manifest contains a duplicate source pathname');
   }
-  assetByPathname.set(pathname, asset);
+
+  const filename = basename(asset.localPath ?? '');
+  const source = resolve(root, asset.localPath ?? '');
+  if (!filename || (source !== archiveRoot && !source.startsWith(`${archiveRoot}/`))) {
+    throw new Error('An archived asset path is invalid');
+  }
+  if (asset.status !== 200 || !existsSync(source) || !statSync(source).isFile()) {
+    throw new Error('An archived asset is unavailable');
+  }
+  const bytes = readFileSync(source);
+  if (typeof asset.bytes === 'number' && bytes.length !== asset.bytes) {
+    throw new Error('An archived asset failed size validation');
+  }
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (digest !== asset.sha256) throw new Error('An archived asset failed integrity validation');
+
+  const isJavaScript =
+    /javascript/i.test(String(asset.contentType ?? '')) || filename.toLowerCase().endsWith('.js');
+  const restrictedReason =
+    isJavaScript && /AIza[0-9A-Za-z_-]{35}/.test(bytes.toString('utf8'))
+      ? 'embedded-google-api-credential'
+      : null;
+  const validated = { asset, filename, bytes, restrictedReason };
+  assetByPathname.set(pathname, validated);
+  return validated;
+});
+
+if (
+  new Set(validatedManifestAssets.map(({ filename }) => filename)).size !==
+  validatedManifestAssets.length
+) {
+  throw new Error('The asset manifest contains duplicate output filenames');
 }
+
+const restrictedManifestAssets = validatedManifestAssets.filter(
+  ({ restrictedReason }) => restrictedReason,
+);
 
 function localAssetForUrl(sourceUrl) {
   const normalized = sourceUrl.startsWith('//') ? `https:${sourceUrl}` : sourceUrl;
   const url = new URL(normalized.replaceAll('&amp;', '&'));
   const key = decodeURIComponent(url.pathname).replaceAll('+', ' ');
   const asset = assetByPathname.get(key);
-  if (!asset) throw new Error('A first-party public image is missing from the asset archive');
-  return `/assets/${basename(asset.localPath)}`;
+  if (!asset) throw new Error('A first-party asset is missing from the asset archive');
+  return `/assets/${asset.filename}`;
 }
 
 const firstPartyImagePattern =
   /(?:https?:)?\/\/images\.squarespace-cdn\.com\/content\/v1\/[^"'<>\\\s)]+/gi;
 
-function rewriteFirstPartyImages(value) {
+const assetReferenceRewrites = assetManifest.assets
+  .flatMap((asset) => {
+    const parsed = new URL(asset.sourceUrl);
+    const localPath = `/assets/${basename(asset.localPath)}`;
+    const decodedPathname = decodeURIComponent(parsed.pathname).replaceAll('+', ' ');
+    const references = new Set([
+      asset.sourceUrl,
+      parsed.pathname,
+      decodedPathname,
+      parsed.protocol === 'https:' ? asset.sourceUrl.replace(/^https:/, '') : '',
+    ]);
+    return [...references]
+      .filter(Boolean)
+      .map((reference) => ({ reference, localPath }));
+  })
+  .sort((left, right) => right.reference.length - left.reference.length);
+
+function rewriteFirstPartyAssets(value) {
   if (typeof value !== 'string' || value.length === 0) return value ?? '';
-  return value.replace(firstPartyImagePattern, (url) => localAssetForUrl(url));
+  let rewritten = value.replace(firstPartyImagePattern, (url) => localAssetForUrl(url));
+  for (const { reference, localPath } of assetReferenceRewrites) {
+    rewritten = rewritten.replaceAll(reference, localPath);
+  }
+  return rewritten;
+}
+
+function rewriteFirstPartyAssetsDeep(value) {
+  if (typeof value === 'string') return rewriteFirstPartyAssets(value);
+  if (Array.isArray(value)) return value.map(rewriteFirstPartyAssetsDeep);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, rewriteFirstPartyAssetsDeep(child)]),
+  );
 }
 
 function normalizeMainImage(image) {
   if (!image) return null;
   return {
-    src: image.assetUrl ? rewriteFirstPartyImages(image.assetUrl) : null,
+    src: image.assetUrl ? rewriteFirstPartyAssets(image.assetUrl) : null,
     filename: image.filename ?? '',
     title: image.title ?? '',
-    altHtml: rewriteFirstPartyImages(image.body ?? ''),
+    altHtml: rewriteFirstPartyAssets(image.body ?? ''),
     contentType: image.contentType ?? '',
     originalSize: image.originalSize ?? null,
     focalPoint: image.mediaFocalPoint
@@ -140,18 +206,81 @@ function seoDescriptionFor(collection, publicCapture) {
     publicCapture?.meta?.description ??
     collection.description ??
     '';
-  return rewriteFirstPartyImages(description).trim();
+  return rewriteFirstPartyAssets(description).trim();
+}
+
+const SCRIPT_TAG_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+const EVENT_HANDLER_ATTRIBUTE_PATTERN =
+  /\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const RUNTIME_DATA_ATTRIBUTE_PATTERN =
+  /\sdata-(?!(?:instgrm-permalink|instgrm-version)\b)[\w:-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const IMAGE_TAG_PATTERN = /<img\b[^>]*>/gi;
+
+function hydrateCapturedImage(tag) {
+  let hydrated = tag;
+  if (!/\ssrc\s*=/i.test(hydrated)) {
+    const source = hydrated.match(/\sdata-src\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i);
+    const value = source?.[1] ?? source?.[2] ?? source?.[3];
+    if (value) hydrated = hydrated.replace(/<img\b/i, `<img src="${value}"`);
+  }
+  if (/\sclass\s*=\s*("|')/i.test(hydrated)) {
+    hydrated = hydrated.replace(/\sclass\s*=\s*("|')([^"']*)\1/i, (_match, quote, classes) => {
+      const values = new Set(`${classes} loaded`.trim().split(/\s+/));
+      return ` class=${quote}${[...values].join(' ')}${quote}`;
+    });
+  } else {
+    hydrated = hydrated.replace(/<img\b/i, '<img class="loaded"');
+  }
+  return hydrated;
+}
+
+function sanitizeCapturedHtml(value) {
+  return rewriteFirstPartyAssets(String(value ?? ''))
+    .replace(IMAGE_TAG_PATTERN, hydrateCapturedImage)
+    .replace(SCRIPT_TAG_PATTERN, '')
+    .replace(EVENT_HANDLER_ATTRIBUTE_PATTERN, '')
+    .replace(RUNTIME_DATA_ATTRIBUTE_PATTERN, '');
+}
+
+function extractStripeIntegration(contentHtml, slug) {
+  const matches = [...String(contentHtml ?? '').matchAll(/fcflRenderEmailForm\(\s*["']([^"']+)["']\s*,\s*(true|false)\s*\)/g)];
+  const expectedModes = new Map([
+    ['guest-pass', 'pricing-table'],
+    ['services-payment', 'buy-button'],
+    ['membership2', 'pricing-table'],
+  ]);
+  const expectedMode = expectedModes.get(slug);
+
+  if (!expectedMode) {
+    if (matches.length > 0) throw new Error(`Unexpected Stripe integration on ${slug}`);
+    return null;
+  }
+  if (
+    matches.length !== 1 ||
+    !/\bid\s*=\s*(?:["']fcfl-email-form["']|fcfl-email-form)(?=\s|>)/i.test(String(contentHtml))
+  ) {
+    throw new Error(`Stripe integration capture is incomplete for ${slug}`);
+  }
+
+  const [, id, buyButtonFlag] = matches[0];
+  const kind = buyButtonFlag === 'true' ? 'buy-button' : 'pricing-table';
+  if (kind !== expectedMode || !/^(?:buy_btn|prctbl)_[A-Za-z0-9]+$/.test(id)) {
+    throw new Error(`Stripe integration capture does not match the expected mode for ${slug}`);
+  }
+  return { kind, id };
 }
 
 function normalizeCollection(collection, mainContent, publicCapture, pathOverride) {
   const slug = collection.urlId;
+  const capturedContent = mainContent ?? collection.mainContent ?? '';
   return {
     slug,
     path: pathOverride ?? (collection.homepage ? '/' : `/${slug}`),
     title: collection.title ?? '',
     navigationTitle: collection.navigationTitle ?? collection.title ?? '',
-    descriptionHtml: rewriteFirstPartyImages(collection.description ?? ''),
-    contentHtml: rewriteFirstPartyImages(mainContent ?? collection.mainContent ?? ''),
+    descriptionHtml: sanitizeCapturedHtml(collection.description ?? ''),
+    contentHtml: sanitizeCapturedHtml(capturedContent),
+    stripeIntegration: extractStripeIntegration(capturedContent, slug),
     homepage: Boolean(collection.homepage),
     type: collection.typeName ?? 'page',
     backgroundSource: collection.backgroundSource ?? null,
@@ -252,7 +381,7 @@ if (!faviconAsset) throw new Error('The archived favicon is unavailable');
 const site = {
   title: website.siteTitle,
   fullTitle: homeSource.collection.title,
-  description: website.siteDescription,
+  description: rewriteFirstPartyAssets(website.siteDescription ?? ''),
   primaryDomain: website.primaryDomain,
   address: {
     title: location.addressTitle,
@@ -267,10 +396,14 @@ const site = {
     .filter((account) => account.iconEnabled)
     .map((account) => account.profileUrl),
   logoAsset: localAssetForUrl(website.logoImageUrl),
+  socialLogoAsset: website.socialLogoImageUrl
+    ? localAssetForUrl(website.socialLogoImageUrl)
+    : null,
   faviconAsset: `/assets/${basename(faviconAsset.localPath)}`,
   locale: website.language,
   timezone: website.timeZone,
   analyticsIds,
+  announcementBar: rewriteFirstPartyAssetsDeep(report.site.announcementBar ?? null),
   template: {
     family: report.site.template.family,
     variant: report.site.template.variant,
@@ -283,6 +416,15 @@ const site = {
     templateFamily: report.site.template.family,
     templateVariant: report.site.template.variant,
     templateVersion: report.site.template.version,
+    manifestAssetCount: validatedManifestAssets.length,
+    restrictedAssets: restrictedManifestAssets.map(
+      ({ asset, filename, restrictedReason }) => ({
+        filename,
+        contentType: asset.contentType ?? '',
+        sha256: asset.sha256,
+        reason: restrictedReason,
+      }),
+    ),
   },
 };
 
@@ -311,28 +453,40 @@ if (
   throw new Error('The protected page set must contain two unique isolated records');
 }
 
-const validatedAssets = assetManifest.assets.map((asset) => {
-  const filename = basename(asset.localPath ?? '');
-  const source = resolve(root, asset.localPath ?? '');
-  const archiveRoot = resolve(root, 'research/assets');
-  if (!filename || (source !== archiveRoot && !source.startsWith(`${archiveRoot}/`))) {
-    throw new Error('An archived asset path is invalid');
-  }
-  if (asset.status !== 200 || !existsSync(source) || !statSync(source).isFile()) {
-    throw new Error('An archived asset is unavailable');
-  }
-  const bytes = readFileSync(source);
-  if (typeof asset.bytes === 'number' && bytes.length !== asset.bytes) {
-    throw new Error('An archived asset failed size validation');
-  }
-  const digest = createHash('sha256').update(bytes).digest('hex');
-  if (digest !== asset.sha256) throw new Error('An archived asset failed integrity validation');
-  return { filename, bytes };
-});
-
-if (new Set(validatedAssets.map(({ filename }) => filename)).size !== validatedAssets.length) {
-  throw new Error('The asset manifest contains duplicate output filenames');
+function referencedAssetFilenames(value) {
+  return new Set(
+    [...JSON.stringify(value).matchAll(/\/assets\/([A-Za-z0-9._-]+)/g)].map((match) => match[1]),
+  );
 }
+
+const publicAssetFilenames = referencedAssetFilenames({ pages, site, navigation });
+const protectedAssetFilenames = referencedAssetFilenames(protectedPages);
+const manifestFilenames = new Set(
+  validatedManifestAssets.map(({ filename }) => filename),
+);
+const restrictedFilenames = new Set(
+  restrictedManifestAssets.map(({ filename }) => filename),
+);
+for (const filename of publicAssetFilenames) {
+  if (!manifestFilenames.has(filename)) {
+    throw new Error(`Generated public content references an unarchived asset: ${filename}`);
+  }
+  if (restrictedFilenames.has(filename)) {
+    throw new Error(`Generated public content references a restricted asset: ${filename}`);
+  }
+}
+const protectedOnlyAssets = [...protectedAssetFilenames].filter(
+  (filename) => !publicAssetFilenames.has(filename),
+);
+if (protectedOnlyAssets.length > 0) {
+  throw new Error(
+    `Protected-only assets require a private delivery path: ${protectedOnlyAssets.join(', ')}`,
+  );
+}
+
+const validatedAssets = validatedManifestAssets.filter(({ filename }) =>
+  publicAssetFilenames.has(filename),
+);
 
 const serializedOutputs = new Map([
   ['src/data/pages.json', pages],

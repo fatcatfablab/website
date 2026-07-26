@@ -10,6 +10,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, relative, resolve } from 'node:path';
@@ -62,6 +63,7 @@ interface PageRecord {
   navigationTitle: string;
   descriptionHtml: string;
   contentHtml: string;
+  stripeIntegration: { kind: 'pricing-table' | 'buy-button'; id: string } | null;
   homepage: boolean;
   type: string;
   backgroundSource: unknown;
@@ -245,6 +247,26 @@ function archivedAssetForUrl(
   })?.localPath;
 }
 
+function renderableCollectionSource(
+  collection: Record<string, unknown>,
+  mainContent?: string,
+): Record<string, unknown> {
+  const children = Array.isArray(collection.collections)
+    ? collection.collections.map((child) =>
+        renderableCollectionSource(child as Record<string, unknown>),
+      )
+    : [];
+  return {
+    description: collection.description,
+    mainContent: mainContent ?? collection.mainContent,
+    mainImage: collection.mainImage,
+    video: collection.video,
+    seoDescription: (collection.seoData as { seoDescription?: unknown } | undefined)
+      ?.seoDescription,
+    collections: children,
+  };
+}
+
 describe('generated public content', () => {
   it('contains exactly the 21 enabled, public JSON collections with unique slugs', () => {
     const pages = readJson<PageRecord[]>('src/data/pages.json');
@@ -275,6 +297,19 @@ describe('generated public content', () => {
       expect(page.seo.canonical === null || typeof page.seo.canonical === 'string').toBe(true);
       expect(typeof page.seo.noindex).toBe('boolean');
       expect(Array.isArray(page.indexSections)).toBe(true);
+    }
+  });
+
+  it('removes captured scripts, event handlers, and editor/runtime data attributes before generation', () => {
+    const pages = readJson<PageRecord[]>('src/data/pages.json');
+    const htmlValues = gatherHtmlBearingValues(pages);
+
+    expect(htmlValues.length).toBeGreaterThan(0);
+    for (const html of htmlValues) {
+      expect(html).not.toMatch(/<script\b/i);
+      expect(html).not.toMatch(/\son[a-z]+\s*=/i);
+      expect(html).not.toMatch(/\sdata-(?!(?:instgrm-permalink|instgrm-version)\b)[\w:-]+\s*=/i);
+      expect(html).not.toMatch(/(?:squarespace-cdn|static1\.squarespace)/i);
     }
   });
 
@@ -352,6 +387,7 @@ describe('navigation, site settings, and redirects', () => {
       locale: 'en-US',
       timezone: 'America/New_York',
       logoAsset: '/assets/e07c9f0e7006-Fat-Cat-Fab-Lab---Logo-Final.png',
+      socialLogoAsset: '/assets/3777e916d67d-fcfl-tab-logo-square.png',
       faviconAsset: '/assets/097091c1b730-favicon.ico',
       address: {
         line1: '224 West 4th Street',
@@ -367,6 +403,24 @@ describe('navigation, site settings, and redirects', () => {
     });
     expect(typeof site.description).toBe('string');
     expect((site.description as string).length).toBeGreaterThan(0);
+    if (sourceCaptureAvailable) {
+      const report = readJson<{ site: { announcementBar: unknown } }>(
+        'research/capture-report.json',
+      );
+      expect(site.announcementBar).toEqual(report.site.announcementBar);
+      expect(site.provenance).toMatchObject({
+        restrictedAssets: [
+          {
+            filename: '3f681ed1e8e1-format-google-calendar.js',
+            contentType: 'text/javascript',
+            reason: 'embedded-google-api-credential',
+          },
+        ],
+      });
+      expect(existsSync(join(root, 'public/assets/3f681ed1e8e1-format-google-calendar.js'))).toBe(
+        false,
+      );
+    }
   });
 
   it('records the legacy classes redirect and the empty Squarespace mapping source', () => {
@@ -456,6 +510,29 @@ describe('protected content isolation', () => {
       }
     },
   );
+
+  it.skipIf(!sourceCaptureAvailable)(
+    'keeps protected content out of src and public client files',
+    () => {
+      const protectedBodies = protectedSlugs
+        .map(
+          (slug) =>
+            readJson<{ mainContent?: string }>(
+              `research/admin-pages/${slug}/squarespace.json`,
+            ).mainContent,
+        )
+        .filter((body): body is string => Boolean(body?.trim()));
+      const publicClientText = [join(root, 'src'), join(root, 'public')]
+        .flatMap(walkFiles)
+        .filter((file) => /\.(?:astro|css|html|js|json|mjs|ts|tsx)$/i.test(file))
+        .map((file) => readFileSync(file, 'utf8'))
+        .join('\n');
+
+      if (findProtectedContentLeak([{ contentHtml: publicClientText }], protectedBodies)) {
+        throw new Error('Protected page content leaked into src or public client files');
+      }
+    },
+  );
 });
 
 describe('transactional content generation', () => {
@@ -496,29 +573,134 @@ describe('transactional content generation', () => {
       }
     },
   );
+
+  it.skipIf(!sourceCaptureAvailable)(
+    'rejects a protected-only binary asset before it can enter public output',
+    () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'fatcat-protected-asset-'));
+      try {
+        mkdirSync(join(sandbox, 'scripts'), { recursive: true });
+        cpSync(
+          join(root, 'scripts/generate-site-content.mjs'),
+          join(sandbox, 'scripts/generate-site-content.mjs'),
+        );
+        cpSync(join(root, 'research'), join(sandbox, 'research'), { recursive: true });
+        cpSync(join(root, 'src/data'), join(sandbox, 'src/data'), { recursive: true });
+        cpSync(join(root, 'public/assets'), join(sandbox, 'public/assets'), { recursive: true });
+        cpSync(join(root, 'private-content'), join(sandbox, 'private-content'), { recursive: true });
+
+        const manifest = readJson<{
+          assets: Array<{ sourceUrl: string; localPath: string }>;
+        }>('research/assets/manifest.json');
+        const publicSources = publicSlugs
+          .map((slug) =>
+            readFileSync(join(root, `research/admin-pages/${slug}/squarespace.json`), 'utf8'),
+          )
+          .join('\n');
+        const protectedOnlyCandidate = manifest.assets.find((asset) => {
+          const pathname = new URL(asset.sourceUrl).pathname;
+          return !publicSources.includes(asset.sourceUrl) && !publicSources.includes(pathname);
+        });
+        expect(protectedOnlyCandidate).toBeDefined();
+
+        const protectedPath = join(
+          sandbox,
+          'research/admin-pages/member-portal/squarespace.json',
+        );
+        const protectedSource = JSON.parse(readFileSync(protectedPath, 'utf8')) as {
+          mainContent: string;
+        };
+        protectedSource.mainContent += `<img src="${protectedOnlyCandidate!.sourceUrl}">`;
+        writeFileSync(protectedPath, JSON.stringify(protectedSource));
+        const before = fingerprintGeneratedOutputs(sandbox);
+
+        const result = spawnSync(process.execPath, ['scripts/generate-site-content.mjs'], {
+          cwd: sandbox,
+          encoding: 'utf8',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(`${result.stdout}\n${result.stderr}`).toContain('Protected-only assets');
+        expect(fingerprintGeneratedOutputs(sandbox)).toBe(before);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(!sourceCaptureAvailable)(
+    'validates restricted manifest assets before replacing generated output',
+    () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'fatcat-restricted-asset-'));
+      try {
+        mkdirSync(join(sandbox, 'scripts'), { recursive: true });
+        cpSync(
+          join(root, 'scripts/generate-site-content.mjs'),
+          join(sandbox, 'scripts/generate-site-content.mjs'),
+        );
+        cpSync(join(root, 'research'), join(sandbox, 'research'), { recursive: true });
+        cpSync(join(root, 'src/data'), join(sandbox, 'src/data'), { recursive: true });
+        cpSync(join(root, 'public/assets'), join(sandbox, 'public/assets'), { recursive: true });
+        cpSync(join(root, 'private-content'), join(sandbox, 'private-content'), { recursive: true });
+
+        const manifest = readJson<{ assets: Array<{ localPath: string }> }>(
+          'research/assets/manifest.json',
+        );
+        const restrictedAsset = manifest.assets.find(({ localPath }) =>
+          localPath.endsWith('format-google-calendar.js'),
+        );
+        expect(restrictedAsset).toBeDefined();
+        rmSync(join(sandbox, restrictedAsset!.localPath));
+        const before = fingerprintGeneratedOutputs(sandbox);
+
+        const result = spawnSync(process.execPath, ['scripts/generate-site-content.mjs'], {
+          cwd: sandbox,
+          encoding: 'utf8',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(fingerprintGeneratedOutputs(sandbox)).toBe(before);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe('local asset migration', () => {
-  it('keeps the complete committed asset set available without generator staging files', () => {
-    const assets = readdirSync(join(root, 'public/assets'));
+  it('publishes exactly the assets referenced by generated public data', () => {
+    const assets = readdirSync(join(root, 'public/assets')).sort();
+    const generated = ['pages.json', 'site.json', 'navigation.json']
+      .map((file) => readFileSync(join(root, 'src/data', file), 'utf8'))
+      .join('\n');
+    const references = [...generated.matchAll(/\/assets\/([A-Za-z0-9._-]+)/g)]
+      .map((match) => match[1])
+      .filter((filename, index, all) => all.indexOf(filename) === index)
+      .sort();
 
-    expect(assets).toHaveLength(26);
+    expect(assets).toEqual(references);
+    expect(assets.length).toBeGreaterThan(0);
     expect(assets.every((asset: string) => !asset.startsWith('.generate-site-content-'))).toBe(true);
   });
 
   it.skipIf(!sourceCaptureAvailable)(
-    'copies every archived asset with byte-for-byte integrity',
+    'copies every published asset with byte-for-byte integrity',
     () => {
       const manifest = readJson<{
         assets: Array<{ localPath: string; sha256: string }>;
       }>('research/assets/manifest.json');
+      const manifestByFilename = new Map(
+        manifest.assets.map((asset) => [basename(asset.localPath), asset]),
+      );
+      const published = readdirSync(join(root, 'public/assets'));
 
-      expect(manifest.assets.length).toBeGreaterThan(0);
-      for (const asset of manifest.assets) {
-        const publicPath = join(root, 'public/assets', basename(asset.localPath));
-        expect(existsSync(publicPath)).toBe(true);
+      expect(published.length).toBeGreaterThan(0);
+      for (const filename of published) {
+        const asset = manifestByFilename.get(filename);
+        expect(asset, `missing manifest provenance for ${filename}`).toBeDefined();
+        const publicPath = join(root, 'public/assets', filename);
         const digest = createHash('sha256').update(readFileSync(publicPath)).digest('hex');
-        expect(digest).toBe(asset.sha256);
+        expect(digest).toBe(asset!.sha256);
       }
     },
   );
@@ -555,6 +737,52 @@ describe('local asset migration', () => {
     },
   );
 
+  it.skipIf(!sourceCaptureAvailable)(
+    'rewrites every manifest-backed first-party asset reference emitted into public data',
+    () => {
+      const pages = readJson<PageRecord[]>('src/data/pages.json');
+      const manifest = readJson<{
+        assets: Array<{ sourceUrl: string; localPath: string }>;
+      }>('research/assets/manifest.json');
+      const generated = JSON.stringify({
+        pages,
+        site: readJson<Record<string, unknown>>('src/data/site.json'),
+      });
+      const emittedSourceStrings: string[] = [];
+
+      for (const slug of publicSlugs) {
+        const source = readJson<{
+          mainContent?: string;
+          collection: Record<string, unknown>;
+          website: { logoImageUrl?: string; socialLogoImageUrl?: string };
+        }>(`research/admin-pages/${slug}/squarespace.json`);
+        emittedSourceStrings.push(
+          JSON.stringify(renderableCollectionSource(source.collection, source.mainContent)),
+        );
+        if (slug === 'about') {
+          emittedSourceStrings.push(source.website.logoImageUrl ?? '');
+          emittedSourceStrings.push(source.website.socialLogoImageUrl ?? '');
+        }
+      }
+
+      const emittedSource = emittedSourceStrings.join('\n');
+      for (const asset of manifest.assets) {
+        const sourceUrl = new URL(asset.sourceUrl);
+        const references = [
+          asset.sourceUrl,
+          sourceUrl.pathname,
+          decodeURIComponent(sourceUrl.pathname).replaceAll('+', ' '),
+        ];
+        if (references.some((reference) => emittedSource.includes(reference))) {
+          expect(generated).toContain(`/assets/${basename(asset.localPath)}`);
+          for (const reference of references) {
+            expect(generated).not.toContain(reference);
+          }
+        }
+      }
+    },
+  );
+
   it('ensures every local asset referenced by public generated data exists', () => {
     const generated = ['pages.json', 'site.json']
       .map((file) => readFileSync(join(root, 'src/data', file), 'utf8'))
@@ -578,5 +806,22 @@ describe('typed content helpers', () => {
     expect(listPublicPages()).toEqual(pages);
     expect(getPublicPageBySlug('about')).toEqual(pages[0]);
     expect(getPublicPageBySlug('does-not-exist')).toBeUndefined();
+  });
+
+  it('does not expose mutable module state to helper callers', async () => {
+    const pages = readJson<PageRecord[]>('src/data/pages.json');
+    const { getPublicPageBySlug, listPublicPages } = await import('../src/lib/content');
+
+    const listed = listPublicPages();
+    listed[0].title = 'mutated title';
+    listed[0].seo.description = 'mutated description';
+    listed.pop();
+
+    const fetched = getPublicPageBySlug('about')!;
+    fetched.navigationTitle = 'mutated navigation title';
+    fetched.indexSections.splice(0);
+
+    expect(listPublicPages()).toEqual(pages);
+    expect(getPublicPageBySlug('about')).toEqual(pages[0]);
   });
 });

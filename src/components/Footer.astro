@@ -8,17 +8,34 @@ const organizationName = site.fullTitle.split(" - ")[0];
 
 <footer id="footer" role="contentinfo">
   <div class="footer-inner">
-    <div class="back-to-top-nav">
-      <a href="#header">Back to Top</a>
+    <div class="nav-wrapper back-to-top-nav">
+      <nav aria-label="Back to top">
+        <div class="back-to-top">
+          <a href="#header">Back to Top</a>
+        </div>
+      </nav>
     </div>
 
-    <nav class="footer-navigation" id="secondaryNavigation" aria-label="Footer navigation">
-      {
-        navigation.footer.map((item) => (
-          <a href={item.href}>{item.label}</a>
-        ))
-      }
-    </nav>
+    <div
+      id="secondaryNavWrapper"
+      class="nav-wrapper"
+      data-content-field="navigation-secondaryNav"
+    >
+      <nav
+        class="footer-navigation"
+        id="secondaryNavigation"
+        aria-label="Footer navigation"
+        data-content-field="navigation-secondaryNav"
+      >
+        {
+          navigation.footer.map((item) => (
+            <div class="collection">
+              <a href={item.href}><span>{item.label}</span></a>
+            </div>
+          ))
+        }
+      </nav>
+    </div>
 
     <div id="siteInfo">
       <span class="site-address">

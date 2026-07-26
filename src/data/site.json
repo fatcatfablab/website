@@ -18,12 +18,17 @@
     "https://twitter.com/fatcatFABLAB"
   ],
   "logoAsset": "/assets/e07c9f0e7006-Fat-Cat-Fab-Lab---Logo-Final.png",
+  "socialLogoAsset": "/assets/3777e916d67d-fcfl-tab-logo-square.png",
   "faviconAsset": "/assets/097091c1b730-favicon.ico",
   "locale": "en-US",
   "timezone": "America/New_York",
   "analyticsIds": [
     "UA-83126816-1"
   ],
+  "announcementBar": {
+    "style": 1,
+    "text": "<p class=\"\" style=\"white-space:pre-wrap;\">Help us amplify our #GivingTuesday <a href=\"https://www.fatcatfablab.org/giving-tuesday\" target=\"\">campaign message!</a></p>"
+  },
   "template": {
     "family": "Bedford",
     "variant": "Anya & Deven",
@@ -35,6 +40,15 @@
     "internalUrl": "https://fatcatfablab.squarespace.com",
     "templateFamily": "Bedford",
     "templateVariant": "Anya & Deven",
-    "templateVersion": "7.0"
+    "templateVersion": "7.0",
+    "manifestAssetCount": 26,
+    "restrictedAssets": [
+      {
+        "filename": "3f681ed1e8e1-format-google-calendar.js",
+        "contentType": "text/javascript",
+        "sha256": "e51973a90799cb7d536a88e8e8bec73ed097b1c36597cec2afef295256b72d16",
+        "reason": "embedded-google-api-credential"
+      }
+    ]
   }
 }

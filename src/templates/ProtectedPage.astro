@@ -1,0 +1,90 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import StandardPage from "./StandardPage.astro";
+import { loadPrivatePage } from "../lib/private-content";
+
+interface Props {
+  slug: "member-portal" | "membership2";
+}
+
+const { slug } = Astro.props;
+const authorized = Astro.locals.protectedAuthorized === true;
+let page = null;
+let unavailable = Astro.locals.protectedAvailable !== true;
+if (authorized) {
+  try {
+    page = await loadPrivatePage(slug);
+  } catch {
+    unavailable = true;
+  }
+}
+const returnTo = `/${slug}`;
+const hasError = Astro.url.searchParams.get("loginError") === "1";
+---
+
+{
+  page ? (
+    <StandardPage page={page} />
+  ) : (
+    <BaseLayout
+      title="Protected page"
+      description="Authentication is required."
+      canonical={returnTo}
+      noindex={true}
+      pageClass="protected-login-page"
+      bodyClass="general-page protected-page"
+    >
+      <main id="content" class="protected-login" aria-labelledby="protected-login-title">
+        <h1 id="protected-login-title">Password required</h1>
+        {unavailable ? (
+          <p class="protected-login-error" role="alert">This page is temporarily unavailable.</p>
+        ) : (
+          <>
+            {hasError && <p class="protected-login-error" role="alert">The password was not accepted.</p>}
+            <form method="post" action="/api/protected-login">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <label for="protected-password">Password</label>
+              <input id="protected-password" name="password" type="password" autocomplete="current-password" required />
+              <button type="submit">Enter</button>
+            </form>
+          </>
+        )}
+      </main>
+    </BaseLayout>
+  )
+}
+
+<style>
+  .protected-login {
+    width: min(100% - 40px, 520px);
+    min-height: 55vh;
+    margin: 85px auto 0;
+    padding: 80px 0;
+  }
+
+  .protected-login form {
+    display: grid;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .protected-login input,
+  .protected-login button {
+    min-height: 48px;
+    padding: 10px 12px;
+    font: inherit;
+  }
+
+  .protected-login button {
+    border: 2px solid var(--fcfl-teal);
+    color: var(--fcfl-teal);
+    background: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .protected-login-error {
+    color: #9c1c1c;
+  }
+</style>

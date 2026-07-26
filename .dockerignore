@@ -1,0 +1,16 @@
+node_modules
+.git
+.gitignore
+research
+private-content
+.astro
+dist
+playwright-report
+test-results
+coverage
+.env
+.env.*
+*.key
+*.pem
+*.crt
+.DS_Store

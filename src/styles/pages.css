@@ -17,10 +17,27 @@
   padding: 0 !important;
 }
 
+.folder-page-shell {
+  width: min(100%, 1020px);
+  margin-right: auto;
+  margin-left: auto;
+  padding: 96px 32px;
+}
+
+.standard-page .folder-page-shell #content {
+  display: inline-block;
+  width: calc(100% - 255px);
+  margin: 0;
+  padding: 0;
+  vertical-align: top;
+}
+
 .standard-page > .banner-thumbnail-wrapper {
   width: 100vw;
   max-width: none;
   margin-left: calc(50% - 50vw);
+  box-sizing: content-box;
+  height: auto;
 }
 
 .has-page-banner #content,
@@ -31,9 +48,14 @@
 .banner-thumbnail-wrapper {
   position: relative;
   width: 100%;
-  height: clamp(260px, 32vw, 470px);
+  height: auto;
   overflow: hidden;
   background: #090611;
+}
+
+.home-page .index-section:first-child > .banner-thumbnail-wrapper {
+  box-sizing: border-box;
+  height: 37.8vw;
 }
 
 .home-page .index-section:not(:first-child) > .banner-thumbnail-wrapper {
@@ -45,7 +67,7 @@
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: rgb(0 0 0 / 20%);
+  background: rgba(245, 90, 0, 0.3);
 }
 
 .banner-thumbnail-wrapper .thumbnail,
@@ -67,19 +89,32 @@
 
 .banner-thumbnail-wrapper .background-video {
   position: absolute;
-  top: 50%;
-  left: 50%;
   z-index: 1;
-  width: max(100%, 177.78vh);
-  height: max(100%, 56.25vw);
-  min-width: 100%;
-  min-height: 100%;
   border: 0;
   pointer-events: none;
+}
+
+.banner-thumbnail-wrapper .background-video-local {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.banner-thumbnail-wrapper .background-video-embed {
+  top: 50%;
+  left: 50%;
+  width: max(100vw, 177.7778vh);
+  height: max(56.25vw, 100vh);
+  min-width: 100%;
+  min-height: 100%;
+  max-width: none !important;
+  max-height: none;
   transform: translate(-50%, -50%);
 }
 
-.banner-thumbnail-wrapper .desc-wrapper {
+.home-page .index-section:first-child > .banner-thumbnail-wrapper .desc-wrapper {
   position: absolute;
   inset: 0;
   z-index: 3;
@@ -88,16 +123,15 @@
   align-items: center;
   justify-content: center;
   padding: 30px;
-  color: #fff;
+  color: var(--fcfl-hero-text);
   text-align: center;
+  transform: translateY(13px);
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-.banner-thumbnail-wrapper .desc-wrapper > :first-child,
-.banner-thumbnail-wrapper .desc-wrapper > :last-child {
-  margin-top: 0;
-  margin-bottom: 0;
+.home-page .index-section:first-child > .banner-thumbnail-wrapper .desc-wrapper > p {
+  margin: 20px 0;
 }
 
 .index-section-wrapper,
@@ -105,12 +139,23 @@
   overflow-x: clip;
 }
 
+.home-page .index-section-wrapper {
+  box-sizing: content-box;
+}
+
 .index-section-wrapper .content-inner,
 .standard-page #content {
   width: min(100%, 1020px);
   margin-right: auto;
   margin-left: auto;
-  padding: 70px clamp(20px, 5vw, 80px);
+}
+
+.home-page .index-section-wrapper .content-inner {
+  padding: 0;
+}
+
+.standard-page #content {
+  padding: 96px 32px;
 }
 
 .index-section.empty .index-section-wrapper {
@@ -120,6 +165,53 @@
 .main-content iframe,
 .sqs-block iframe {
   max-width: 100%;
+}
+
+.fcfl-location-map {
+  width: min(620px, calc(100vw - 40px));
+  max-width: 620px;
+  aspect-ratio: 2.398;
+  padding: 0 !important;
+  margin-right: 0;
+  margin-left: 50%;
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.fcfl-location-map .sqs-block-content,
+.fcfl-location-map iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fcfl-location-map iframe {
+  border: 0;
+  filter: grayscale(1) contrast(1.05);
+}
+
+#folderNav .folder-nav-toggle {
+  min-height: 44px;
+  appearance: none;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.social-account-links-v2-block .sqs-svg-icon--list {
+  display: flex;
+}
+
+.social-account-links-v2-block .sqs-svg-icon--wrapper > div {
+  transform: none !important;
+}
+
+.social-account-links-v2-block [data-inline-social-icon] {
+  display: block;
+  width: 20px;
+  height: 20px;
+  color: #111;
 }
 
 .main-content img,
@@ -151,15 +243,39 @@
 }
 
 @media only screen and (max-width: 640px) {
-  .banner-thumbnail-wrapper {
-    height: clamp(250px, 75vw, 390px);
+  .fcfl-location-map {
+    width: calc(100vw - 40px);
   }
 
-  .banner-thumbnail-wrapper .desc-wrapper {
-    padding: 24px 20px;
+  .folder-page-shell {
+    padding: 45px 20px;
   }
 
-  .index-section-wrapper .content-inner,
+  .standard-page .folder-page-shell #content {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  #folderNav .folder-nav li.active-link,
+  #folderNav.expanded .folder-nav li {
+    display: block;
+  }
+
+  .home-page .index-section:first-child > .banner-thumbnail-wrapper {
+    height: 450px;
+  }
+
+
+  .home-page .index-section:first-child > .banner-thumbnail-wrapper .desc-wrapper {
+    padding: 24px 32px;
+  }
+
+  .home-page .index-section:first-child > .banner-thumbnail-wrapper .desc-wrapper > p {
+    margin: 10px 0;
+  }
+
   .standard-page #content {
     padding: 45px 20px;
   }
@@ -184,5 +300,92 @@
 
   .sqs-block-spacer {
     display: none;
+  }
+}
+
+/* Protected access and email-first Stripe integrations. */
+.protected-login {
+  width: min(100% - 40px, 520px);
+  min-height: 55vh;
+  margin: 85px auto 0;
+  padding: 80px 0;
+}
+
+.protected-login form {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.protected-login input,
+.protected-login button,
+.fcfl-stripe-email-form input,
+.fcfl-stripe-email-form button {
+  min-height: 48px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.protected-login button,
+.fcfl-stripe-email-form button {
+  border: 2px solid #007b83;
+  color: #007b83;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.protected-login-error {
+  color: #9c1c1c;
+}
+
+.fcfl-stripe-email-gate {
+  width: min(100%, 680px);
+  margin: 24px auto;
+  text-align: center;
+}
+
+.fcfl-stripe-email-form {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 12px;
+}
+
+.fcfl-stripe-email-form label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  max-width: 460px;
+  text-align: left;
+}
+
+.fcfl-stripe-email-form input {
+  width: 100%;
+}
+
+.fcfl-stripe-email-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.fcfl-stripe-status {
+  min-height: 1.5em;
+  margin: 12px 0;
+}
+
+.fcfl-stripe-widget {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media only screen and (max-width: 640px) {
+  .protected-login {
+    padding: 55px 0;
+  }
+
+  .fcfl-stripe-email-form {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

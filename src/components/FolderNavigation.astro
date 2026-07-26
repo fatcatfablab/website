@@ -1,0 +1,36 @@
+---
+import { getHomeIndexSections } from "../lib/content";
+
+interface Props {
+  currentSlug: string;
+}
+
+const { currentSlug } = Astro.props;
+const items = getHomeIndexSections();
+---
+
+<div id="folderNav" data-content-field="navigation-folderNav">
+  <button
+    class="folder-nav-toggle"
+    type="button"
+    aria-controls="folderNavigation"
+    aria-expanded="false"
+    aria-label="Show section navigation"
+  ></button>
+  <nav id="folderNavigation" class="folder-nav" aria-label="Fat Cat Fab Lab sections">
+    <ul>
+      <li class="nav-section-label">Fat Cat Fab Lab - NYC Hackerspace</li>
+      {
+        items.map((item) => (
+          <li class:list={["page-collection", { "active-link": item.slug === currentSlug }] }>
+            {item.slug === currentSlug ? (
+              <a href={item.path} aria-current="page">{item.navigationTitle}</a>
+            ) : (
+              <a href={item.path}>{item.navigationTitle}</a>
+            )}
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</div>

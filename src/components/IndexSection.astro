@@ -15,6 +15,7 @@ const hasBanner = Boolean(
     section.video?.fallbackImage ||
     section.video?.url?.trim(),
 );
+const contentClass = hasContent ? "content-inner has-content" : "content-inner";
 ---
 
 <section
@@ -36,7 +37,7 @@ const hasBanner = Boolean(
   <div class="index-section-wrapper page-content">
     <SquarespaceContent
       id={null}
-      className:list={["content-inner", { "has-content": hasContent }]}
+      className={contentClass}
       contentHtml={section.contentHtml}
     />
   </div>

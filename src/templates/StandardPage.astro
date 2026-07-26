@@ -1,8 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import FolderNavigation from "../components/FolderNavigation.astro";
 import PageBanner from "../components/PageBanner.astro";
 import SquarespaceContent from "../components/SquarespaceContent.astro";
-import type { PublicPage } from "../lib/content";
+import { getHomeIndexSections, type PublicPage } from "../lib/content";
 import "../styles/pages.css";
 
 interface Props {
@@ -10,7 +11,9 @@ interface Props {
 }
 
 const { page } = Astro.props;
-const hasBanner = Boolean(page.mainImage || page.descriptionHtml.trim());
+const sectionSlugs = new Set(getHomeIndexSections().map(({ slug }) => slug));
+const hasFolderNavigation = sectionSlugs.has(page.slug);
+const hasBanner = Boolean(page.mainImage || page.video?.url?.trim());
 const pageClass = hasBanner ? "standard-page has-page-banner" : "standard-page";
 const bodyClass = [
   "transparent-header",
@@ -18,10 +21,11 @@ const bodyClass = [
   "banner-button-corner-style-square",
   `collection-type-${page.type}`,
   "collection-layout-default",
+  hasFolderNavigation ? "has-folder-navigation" : "",
+  hasFolderNavigation ? "hide-sidebar-title" : "",
   "mobile-style-available",
   hasBanner ? "has-banner-image" : "",
   "general-page",
-  "force-mobile-nav",
 ]
   .filter(Boolean)
   .join(" ");
@@ -40,8 +44,20 @@ const bodyClass = [
       image={page.mainImage ?? page.video?.fallbackImage}
       video={page.video}
       descriptionHtml={page.descriptionHtml}
+      allowBackgroundVideo={Boolean(page.video?.url?.trim())}
       label={page.title}
     />
   )}
-  <SquarespaceContent contentHtml={page.contentHtml} />
+  {
+    hasFolderNavigation ? (
+      <div class="folder-page-shell">
+        <FolderNavigation currentSlug={page.slug} />
+        <SquarespaceContent contentHtml={page.contentHtml} stripeIntegration={page.stripeIntegration} />
+      </div>
+    ) : (
+      <div class="standard-page-shell">
+        <SquarespaceContent contentHtml={page.contentHtml} stripeIntegration={page.stripeIntegration} />
+      </div>
+    )
+  }
 </BaseLayout>

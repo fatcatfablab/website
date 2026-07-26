@@ -29,6 +29,11 @@ export interface SeoData {
   noindex: boolean;
 }
 
+export interface StripeIntegration {
+  kind: "pricing-table" | "buy-button";
+  id: string;
+}
+
 export interface IndexSection {
   slug: string;
   path: string;
@@ -36,6 +41,7 @@ export interface IndexSection {
   navigationTitle: string;
   descriptionHtml: string;
   contentHtml: string;
+  stripeIntegration: StripeIntegration | null;
   homepage: boolean;
   type: string;
   backgroundSource: number | null;
@@ -49,10 +55,19 @@ export interface PublicPage extends IndexSection {}
 
 const publicPages = pagesData as PublicPage[];
 
+function clonePage(page: PublicPage): PublicPage {
+  return structuredClone(page);
+}
+
 export function listPublicPages(): PublicPage[] {
-  return publicPages;
+  return publicPages.map(clonePage);
 }
 
 export function getPublicPageBySlug(slug: string): PublicPage | undefined {
-  return publicPages.find((page) => page.slug === slug);
+  const page = publicPages.find((candidate) => candidate.slug === slug);
+  return page ? clonePage(page) : undefined;
+}
+
+export function getHomeIndexSections(): IndexSection[] {
+  return getPublicPageBySlug("home")?.indexSections ?? [];
 }
