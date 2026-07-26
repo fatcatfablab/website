@@ -21,9 +21,9 @@ HOST=127.0.0.1 PORT=4321 npm start
 
 ## Public GitHub Pages preview
 
-Pushes to `main` publish a static copy of the 22 public URL surfaces to:
+A dedicated public Pages repository rebuilds the 22 public URL surfaces from `main` on demand and hourly:
 
-**https://fatcatfablab-admin.github.io/website/**
+**https://harrison-f.github.io/fatcat-fablab-preview/**
 
 The Pages artifact is generated from the production server and marked `noindex`. Protected routes, private content, authentication APIs, and deployment secrets are never included.
 

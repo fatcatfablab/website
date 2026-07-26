@@ -48,13 +48,14 @@ describe("GitHub Pages public preview", () => {
     expect(routeOutputPath("/about")).toBe("about/index.html");
   });
 
-  it("deploys only the generated public artifact through the official Pages actions", async () => {
-    const workflow = await readFile(resolve(root, ".github/workflows/pages.yml"), "utf8");
-    expect(workflow).toContain("permissions:\n  contents: read\n  pages: write\n  id-token: write");
-    expect(workflow).toContain("uses: actions/configure-pages@v5");
-    expect(workflow).toContain("uses: actions/upload-pages-artifact@v3");
-    expect(workflow).toContain("uses: actions/deploy-pages@v4");
-    expect(workflow).toContain("path: dist-pages");
-    expect(workflow).not.toContain("private-content/");
+  it("exposes a deterministic build command for the dedicated preview repository", async () => {
+    const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    const builder = await readFile(resolve(root, "scripts/build-github-pages-preview.mjs"), "utf8");
+    expect(manifest.scripts?.["build:pages-preview"]).toBe("node ./scripts/build-github-pages-preview.mjs");
+    expect(builder).toContain('const protectedPaths = new Set(["/member-portal", "/membership2"]);');
+    expect(builder).toContain('await writeFile(join(output, ".nojekyll"), "")');
+    expect(builder).not.toContain("private-content/");
   });
 });
