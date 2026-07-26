@@ -39,7 +39,7 @@ def public_metadata(slug: str):
             "twitter:description",
             "twitter:image",
         }:
-            meta[key] = value
+            meta[key.lower()] = value
     canonical = soup.select_one('link[rel="canonical"]')
     links = []
     for node in soup.select("a[href], iframe[src], script[src]"):
