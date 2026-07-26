@@ -95,7 +95,7 @@ export async function buildPagesPreview({
     join(output, "preview-manifest.json"),
     `${JSON.stringify({
       basePath: normalizedBase,
-      commit: process.env.GITHUB_SHA || null,
+      commit: process.env.PREVIEW_SOURCE_SHA || process.env.GITHUB_SHA || null,
       generatedAt: new Date().toISOString(),
       routes: captured,
     }, null, 2)}\n`,
