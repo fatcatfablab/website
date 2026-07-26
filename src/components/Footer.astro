@@ -1,0 +1,34 @@
+---
+import navigation from "../data/navigation.json";
+import site from "../data/site.json";
+import SocialLinks from "./SocialLinks.astro";
+
+const organizationName = site.fullTitle.split(" - ")[0];
+---
+
+<footer id="footer" role="contentinfo">
+  <div class="footer-inner">
+    <div class="back-to-top-nav">
+      <a href="#header">Back to Top</a>
+    </div>
+
+    <nav class="footer-navigation" id="secondaryNavigation" aria-label="Footer navigation">
+      {
+        navigation.footer.map((item) => (
+          <a href={item.href}>{item.label}</a>
+        ))
+      }
+    </nav>
+
+    <div id="siteInfo">
+      <span class="site-address">
+        {organizationName}, {site.address.line1}, {site.address.line2}
+      </span>
+      <a href={`mailto:${site.email}`} class="site-email">
+        <span>{site.email}</span>
+      </a>
+    </div>
+
+    <SocialLinks socialLinks={site.socialUrls} />
+  </div>
+</footer>

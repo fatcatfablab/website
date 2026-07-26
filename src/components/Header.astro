@@ -1,0 +1,39 @@
+---
+import navigation from "../data/navigation.json";
+import site from "../data/site.json";
+import Navigation from "./Navigation.astro";
+
+interface Props {
+  currentPath?: string;
+}
+
+const { currentPath = Astro.url.pathname } = Astro.props;
+---
+
+<header id="header" class="show-on-scroll" role="banner">
+  <div class="header-inner">
+    <div id="logoWrapper" class="wrapper">
+      <h1 id="logoImage">
+        <a href="/" aria-label={`${site.title} home`}>
+          <img src={site.logoAsset} alt={site.title} width="258" height="400" />
+        </a>
+      </h1>
+    </div>
+
+    <button
+      class="mobile-nav-toggle"
+      type="button"
+      aria-label="Open navigation"
+      aria-controls="mobileNavigation"
+      aria-expanded="false"
+    >
+      <span class="top-bar" aria-hidden="true"></span>
+      <span class="middle-bar" aria-hidden="true"></span>
+      <span class="bottom-bar" aria-hidden="true"></span>
+    </button>
+
+    <div id="headerNav">
+      <Navigation items={navigation.main} currentPath={currentPath} />
+    </div>
+  </div>
+</header>

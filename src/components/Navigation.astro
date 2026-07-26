@@ -1,0 +1,59 @@
+---
+interface NavigationItem {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  items: NavigationItem[];
+  currentPath: string;
+}
+
+const { items, currentPath } = Astro.props;
+const isExternal = (href: string) => /^https?:\/\//.test(href);
+const isCurrent = (href: string) =>
+  !isExternal(href) &&
+  (currentPath === href || (href !== "/" && currentPath.startsWith(`${href}/`)));
+---
+
+<div id="mainNavWrapper" class="nav-wrapper">
+  <nav id="mainNavigation" aria-label="Primary navigation">
+    {
+      items.map((item) => (
+        <div
+          class:list={[
+            isExternal(item.href) ? "external" : "collection",
+            { active: isCurrent(item.href), "nav-item--join": item.label === "Join" },
+          ]}
+        >
+          {isCurrent(item.href) ? (
+            <a href={item.href} aria-current="page">{item.label}</a>
+          ) : (
+            <a href={item.href}>{item.label}</a>
+          )}
+        </div>
+      ))
+    }
+  </nav>
+</div>
+
+<div id="mobileNavWrapper" class="nav-wrapper" hidden>
+  <nav id="mobileNavigation" aria-label="Mobile navigation" tabindex="-1">
+    {
+      items.map((item) => (
+        <div
+          class:list={[
+            isExternal(item.href) ? "external" : "collection",
+            { active: isCurrent(item.href), "nav-item--join": item.label === "Join" },
+          ]}
+        >
+          {isCurrent(item.href) ? (
+            <a href={item.href} aria-current="page">{item.label}</a>
+          ) : (
+            <a href={item.href}>{item.label}</a>
+          )}
+        </div>
+      ))
+    }
+  </nav>
+</div>

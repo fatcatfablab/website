@@ -1,0 +1,78 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import site from "../data/site.json";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  noindex?: boolean;
+  pageClass?: string;
+  bodyClass?: string;
+}
+
+const defaultDescription = site.description
+  .replace(/<[^>]*>/g, "")
+  .replace(/&nbsp;|&#160;/g, " ")
+  .replace(/&amp;/g, "&")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const {
+  title = site.fullTitle,
+  description = defaultDescription,
+  canonical,
+  noindex = false,
+  pageClass = "",
+  bodyClass = "",
+} = Astro.props;
+
+const siteOrigin = `https://${site.primaryDomain}`;
+const canonicalUrl = new URL(canonical ?? Astro.url.pathname, siteOrigin).toString();
+const bodyClasses = [
+  "enable-nav-button",
+  "nav-button-style-outline",
+  "nav-button-corner-style-rounded",
+  bodyClass,
+].filter(Boolean);
+---
+
+<!doctype html>
+<html lang={site.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href={site.faviconAsset} />
+
+    <meta property="og:site_name" content={site.title} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={new URL(site.logoAsset, siteOrigin).toString()} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(site.logoAsset, siteOrigin).toString()} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <slot name="analytics" />
+    <slot name="head" />
+  </head>
+  <body class:list={bodyClasses}>
+    <a class="skip-link" href="#page">Skip to content</a>
+    <div id="siteWrapper" class="clearfix">
+      <Header currentPath={Astro.url.pathname} />
+      <main id="page" class:list={["main-content", pageClass]}>
+        <slot />
+      </main>
+      <Footer />
+    </div>
+    <script src="/scripts/navigation.js" is:inline defer></script>
+  </body>
+</html>
