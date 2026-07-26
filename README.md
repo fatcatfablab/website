@@ -19,6 +19,14 @@ HOST=127.0.0.1 PORT=4321 npm start
 
 `GET /healthz` is process liveness only. Protected deployment readiness is checked separately with `npm run readiness`.
 
+## Public GitHub Pages preview
+
+Pushes to `main` publish a static copy of the 22 public URL surfaces to:
+
+**https://fatcatfablab-admin.github.io/website/**
+
+The Pages artifact is generated from the production server and marked `noindex`. Protected routes, private content, authentication APIs, and deployment secrets are never included.
+
 ## Content migration
 
 Authenticated Squarespace captures stay in ignored `research/`. Regenerate normalized content and local assets with:

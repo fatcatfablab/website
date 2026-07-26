@@ -1,0 +1,76 @@
+name: Deploy public preview to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production server
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          HOST=127.0.0.1 PORT=4321 node dist/server/entry.mjs > /tmp/fcfl-preview-server.log 2>&1 &
+          echo $! > /tmp/fcfl-preview-server.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4321/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/fcfl-preview-server.log
+          exit 1
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Snapshot public routes
+        env:
+          PREVIEW_ORIGIN: http://127.0.0.1:4321
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: npm run build:pages-preview
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-pages
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

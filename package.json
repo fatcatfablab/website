@@ -22,6 +22,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:pages-preview": "node ./scripts/build-github-pages-preview.mjs",
     "preview": "astro preview",
     "start": "node ./dist/server/entry.mjs",
     "readiness": "node ./scripts/check-readiness.mjs",
