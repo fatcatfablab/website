@@ -291,8 +291,8 @@ for (const asset of assetManifest.assets) {
   copyFileSync(source, destination);
 }
 
-if (readdirSync(publicAssetsDirectory).length !== 22) {
-  throw new Error('The public asset migration must contain exactly 22 files');
+if (readdirSync(publicAssetsDirectory).length !== assetManifest.assets.length) {
+  throw new Error('The public asset migration must contain every archived file');
 }
 
 writeJson('src/data/pages.json', pages);
