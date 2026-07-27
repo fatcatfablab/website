@@ -673,6 +673,69 @@ describe("shared site chrome browser geometry", () => {
     await page.close();
   }, 20_000);
 
+  it("stages orange, an eager poster, and then a ready video without serif typography or blank media", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.route("https://www.instagram.com/**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: "window.instgrm={Embeds:{process(){}}};",
+    }));
+    await page.route("**/6534163451f2-IMG_6131.jpg", async (route) => {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 300));
+      await route.continue();
+    });
+
+    await page.goto(`${chromeUrl}/`, { waitUntil: "domcontentloaded" });
+    const state = () => page.evaluate(() => {
+      const banner = document.querySelector<HTMLElement>(
+        ".home-page .index-section:first-child > .banner-thumbnail-wrapper",
+      )!;
+      const poster = banner.querySelector<HTMLImageElement>("[data-hero-video-poster]")!;
+      const video = banner.querySelector<HTMLVideoElement>("[data-hero-video]")!;
+      const title = banner.querySelector<HTMLElement>(".desc-wrapper strong")!;
+      return {
+        background: getComputedStyle(banner).backgroundColor,
+        posterComplete: poster.complete && poster.naturalWidth > 0,
+        posterOpacity: getComputedStyle(poster).opacity,
+        posterVisibility: getComputedStyle(poster).visibility,
+        posterHidden: poster.classList.contains("is-hidden"),
+        videoReadyState: video.readyState,
+        titleFontFamily: getComputedStyle(title).fontFamily,
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+
+    const initial = await state();
+    expect(initial.background).toBe("rgb(245, 90, 0)");
+    expect(initial.posterHidden).toBe(false);
+    expect(initial.posterOpacity).toBe("1");
+    expect(initial.titleFontFamily).toContain("freight-sans-pro");
+    expect(initial.titleFontFamily).toContain("Helvetica");
+    expect(initial.titleFontFamily).toContain("sans-serif");
+    expect(initial.overflow).toBe(0);
+    await page.screenshot({ path: resolve(qaDir, "home-cold-orange-1280x900.png"), fullPage: false });
+
+    await page.locator("[data-hero-video-poster]").evaluate((image: HTMLImageElement) => image.decode());
+    const posterState = await state();
+    expect(posterState.posterComplete).toBe(true);
+    expect(posterState.posterOpacity).toBe("1");
+    expect(posterState.posterHidden).toBe(false);
+    await page.screenshot({ path: resolve(qaDir, "home-cold-poster-1280x900.png"), fullPage: false });
+
+    await page.waitForTimeout(1_500);
+    expect((await state()).posterHidden).toBe(false);
+    await page.waitForFunction(() => document.querySelector("[data-hero-video-poster]")?.classList.contains("is-hidden"));
+    await page.waitForTimeout(200);
+    const revealed = await state();
+    expect(revealed.posterHidden).toBe(true);
+    expect(revealed.posterOpacity).toBe("0");
+    expect(revealed.posterVisibility).toBe("hidden");
+    expect(revealed.videoReadyState).toBeGreaterThanOrEqual(2);
+    expect(revealed.overflow).toBe(0);
+    await page.screenshot({ path: resolve(qaDir, "home-cold-video-1280x900.png"), fullPage: false });
+    await page.close();
+  }, 15_000);
+
   it("matches the original homepage hero crop at desktop and mobile widths", async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const pageErrors: string[] = [];
@@ -699,7 +762,7 @@ describe("shared site chrome browser geometry", () => {
           height: mediaRect.height,
           objectFit: getComputedStyle(media).objectFit,
         },
-        fallbackCount: banner.querySelectorAll("img").length,
+        fallbackCount: banner.querySelectorAll(".background-video-poster").length,
         embedCount: banner.querySelectorAll("iframe").length,
         overflow: document.documentElement.scrollWidth - innerWidth,
       };
@@ -712,7 +775,7 @@ describe("shared site chrome browser geometry", () => {
     near(hero.media.width, hero.banner.width, 1);
     near(hero.media.height, hero.banner.height, 1);
     expect(hero.media.objectFit).toBe("cover");
-    expect(hero.fallbackCount).toBe(0);
+    expect(hero.fallbackCount).toBe(1);
     expect(hero.embedCount).toBe(0);
     expect(hero.overflow).toBe(0);
     await page.screenshot({ path: resolve(qaDir, "home-desktop-1280x900.png"), fullPage: false });

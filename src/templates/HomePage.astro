@@ -9,6 +9,9 @@ interface Props {
 }
 
 const { page } = Astro.props;
+const heroPoster = page.indexSections[0]?.video?.fallbackImage?.src
+  ?? page.indexSections[0]?.mainImage?.src
+  ?? null;
 const bodyClass = [
   "transparent-header",
   "banner-button-style-outline",
@@ -31,6 +34,15 @@ const bodyClass = [
   pageClass="home-page"
   bodyClass={bodyClass}
 >
+  {heroPoster && (
+    <link
+      slot="head"
+      rel="preload"
+      as="image"
+      href={heroPoster}
+      fetchpriority="high"
+    />
+  )}
   <div id="content" class="main-content" data-content-field="main-content">
     {page.indexSections.map((section) => <IndexSection section={section} />)}
   </div>

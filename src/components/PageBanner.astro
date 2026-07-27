@@ -89,18 +89,35 @@ const hasDescription = Boolean(descriptionHtml.trim());
       />
     )}
     {localVideoSrc && (
-      <video
-        class="background-video background-video-local"
-        autoplay
-        muted
-        loop
-        playsinline
-        preload="auto"
-        tabindex="-1"
-        aria-hidden="true"
-      >
-        <source src={localVideoSrc} type="video/mp4" />
-      </video>
+      <>
+        {fallbackImage?.src && (
+          <img
+            class="background-video-poster"
+            src={fallbackImage.src}
+            alt=""
+            loading="eager"
+            decoding="sync"
+            fetchpriority="high"
+            data-hero-video-poster
+            style={`object-position: ${objectPosition};`}
+            aria-hidden="true"
+          />
+        )}
+        <video
+          class="background-video background-video-local"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="auto"
+          poster={fallbackImage?.src}
+          tabindex="-1"
+          data-hero-video
+          aria-hidden="true"
+        >
+          <source src={localVideoSrc} type="video/mp4" />
+        </video>
+      </>
     )}
     {embedVideoSrc && (
       <iframe
@@ -120,3 +137,4 @@ const hasDescription = Boolean(descriptionHtml.trim());
     <div class="desc-wrapper" data-content-field="description" set:html={descriptionHtml}></div>
   )}
 </div>
+{localVideoSrc && <script src="/scripts/hero-video.js" is:inline defer></script>}

@@ -70,10 +70,37 @@ describe("theme and homepage hero regression contract", () => {
     expect(css).toMatch(/\.background-video-embed\s*\{[^}]*height:\s*max\(56\.25vw,\s*100vh\)/s);
   });
 
-  it("does not paint the unrelated group-photo fallback before the video", () => {
+  it("stages the original eager group photo before revealing the local video", () => {
     const banner = source("src/components/PageBanner.astro");
+    const home = source("src/templates/HomePage.astro");
+    const css = source("src/styles/pages.css");
+    const script = source("public/scripts/hero-video.js");
 
-    expect(banner).toMatch(/fallbackImage\?\.src\s*&&\s*!hasVideo\s*&&/);
-    expect(banner).not.toContain("custom-fallback-image");
+    expect(home).toContain('rel="preload"');
+    expect(home).toContain('as="image"');
+    expect(home).toContain('fetchpriority="high"');
+    expect(banner).toContain('class="background-video-poster"');
+    expect(banner).toContain('loading="eager"');
+    expect(banner).toContain('decoding="sync"');
+    expect(banner).toContain('fetchpriority="high"');
+    expect(banner).toContain('poster={fallbackImage?.src}');
+    expect(css).toMatch(/\.home-page \.index-section:first-child\s*>\s*\.banner-thumbnail-wrapper\s*\{[^}]*background:\s*#f55a00/s);
+    expect(css).toMatch(/\.background-video-poster\s*\{[^}]*object-fit:\s*cover[^}]*opacity:\s*1/s);
+    expect(css).toMatch(/\.background-video-poster\.is-hidden\s*\{[^}]*opacity:\s*0/s);
+    expect(script).toContain("2_500");
+    expect(script).toContain('add("is-hidden")');
+    expect(script).toContain('addEventListener("loadeddata"');
+  });
+
+  it("preconnects and preloads the above-fold Freight Sans weights with system fallbacks", () => {
+    const layout = source("src/layouts/BaseLayout.astro");
+    const css = `${source("src/styles/global.css")}\n${source("src/styles/pages.css")}`;
+
+    expect(layout).toContain('rel="preconnect"');
+    expect(layout.match(/rel="preload"[\s\S]*?as="font"/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(layout).toContain('type="font/woff2"');
+    expect(layout).toContain("use.typekit.net");
+    expect(css).toContain(".home-page .index-section:first-child > .banner-thumbnail-wrapper .desc-wrapper *,");
+    expect(css).toMatch(/\.squarespace-content\s+:is\([^)]*\)\s*\{[^}]*font-family:\s*var\(--fcfl-font\)/s);
   });
 });
