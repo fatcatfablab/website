@@ -701,6 +701,8 @@ describe("shared site chrome browser geometry", () => {
         posterHidden: poster.classList.contains("is-hidden"),
         videoOpacity: getComputedStyle(video).opacity,
         videoReadyState: video.readyState,
+        videoPaused: video.paused,
+        videoCurrentTime: video.currentTime,
         titleFontFamily: getComputedStyle(title).fontFamily,
         overflow: document.documentElement.scrollWidth - innerWidth,
       };
@@ -735,10 +737,58 @@ describe("shared site chrome browser geometry", () => {
     expect(revealed.posterVisibility).toBe("hidden");
     expect(revealed.videoOpacity).toBe("1");
     expect(revealed.videoReadyState).toBeGreaterThanOrEqual(2);
+    expect(revealed.videoPaused).toBe(false);
+    expect(revealed.videoCurrentTime).toBeGreaterThan(0);
     expect(revealed.overflow).toBe(0);
     await page.screenshot({ path: resolve(qaDir, "home-cold-video-1280x900.png"), fullPage: false });
     await page.close();
   }, 15_000);
+
+  it("keeps the decoded hero poster when the video cannot load", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await page.route("**/fcfl-home-hero.mp4", (route) => route.abort());
+    await page.goto(`${chromeUrl}/`, { waitUntil: "domcontentloaded" });
+    await page.locator("[data-hero-video-poster]").evaluate((image: HTMLImageElement) => image.decode());
+    await page.waitForTimeout(2_800);
+    const state = await page.evaluate(() => {
+      const poster = document.querySelector<HTMLElement>("[data-hero-video-poster]")!;
+      const video = document.querySelector<HTMLVideoElement>("[data-hero-video]")!;
+      return {
+        posterHidden: poster.classList.contains("is-hidden"),
+        posterOpacity: getComputedStyle(poster).opacity,
+        videoPaused: video.paused,
+      };
+    });
+    expect(state.posterHidden).toBe(false);
+    expect(state.posterOpacity).toBe("1");
+    expect(state.videoPaused).toBe(true);
+    await context.close();
+  }, 10_000);
+
+  it("keeps the decoded hero poster and pauses motion when reduced motion is requested", async () => {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    await page.goto(`${chromeUrl}/`, { waitUntil: "domcontentloaded" });
+    await page.locator("[data-hero-video-poster]").evaluate((image: HTMLImageElement) => image.decode());
+    await page.waitForTimeout(2_800);
+    const state = await page.evaluate(() => {
+      const poster = document.querySelector<HTMLElement>("[data-hero-video-poster]")!;
+      const video = document.querySelector<HTMLVideoElement>("[data-hero-video]")!;
+      return {
+        posterHidden: poster.classList.contains("is-hidden"),
+        posterOpacity: getComputedStyle(poster).opacity,
+        videoPaused: video.paused,
+      };
+    });
+    expect(state.posterHidden).toBe(false);
+    expect(state.posterOpacity).toBe("1");
+    expect(state.videoPaused).toBe(true);
+    await context.close();
+  }, 10_000);
 
   it("matches the original homepage hero crop at desktop and mobile widths", async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
