@@ -390,12 +390,12 @@ describe("shared site chrome browser geometry", () => {
     await page.close();
   });
 
-  it("defaults to light, persists an explicit theme choice, and keeps dark navigation white", async () => {
+  it("defaults to light, persists an explicit theme choice, and keeps dark navigation and image overlays white", async () => {
     const page = await browser.newPage({
       viewport: { width: 1280, height: 900 },
       colorScheme: "dark",
     });
-    await page.goto(`${chromeUrl}/about`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${chromeUrl}/`, { waitUntil: "domcontentloaded" });
 
     const themeState = () =>
       page.evaluate(() => ({
@@ -404,18 +404,27 @@ describe("shared site chrome browser geometry", () => {
         navColors: Array.from(document.querySelectorAll<HTMLElement>("#mainNavigation a"), (link) =>
           getComputedStyle(link).color,
         ),
+        overlayColors: Array.from(new Set(
+          Array.from(
+            document.querySelectorAll<HTMLElement>(".banner-thumbnail-wrapper .desc-wrapper, .banner-thumbnail-wrapper .desc-wrapper *"),
+          )
+            .filter((element) => element.textContent?.trim())
+            .map((element) => getComputedStyle(element).color),
+        )),
       }));
 
     const initial = await themeState();
     expect(initial.theme).toBe("light");
     expect(initial.stored).toBeNull();
     expect(initial.navColors).not.toContain("rgb(255, 255, 255)");
+    expect(initial.overlayColors).not.toEqual(["rgb(255, 255, 255)"]);
 
     await page.locator("[data-theme-toggle]").click();
     await expect.poll(() => themeState()).toEqual({
       theme: "dark",
       stored: "dark",
       navColors: Array(8).fill("rgb(255, 255, 255)"),
+      overlayColors: ["rgb(255, 255, 255)"],
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -423,6 +432,7 @@ describe("shared site chrome browser geometry", () => {
       theme: "dark",
       stored: "dark",
       navColors: Array(8).fill("rgb(255, 255, 255)"),
+      overlayColors: ["rgb(255, 255, 255)"],
     });
     await page.close();
   });

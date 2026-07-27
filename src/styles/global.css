@@ -554,9 +554,8 @@ html[data-theme="dark"] #header #mobileNavigation a {
 }
 
 html[data-theme="dark"] .banner-thumbnail-wrapper .desc-wrapper,
-html[data-theme="dark"] .banner-thumbnail-wrapper .desc-wrapper p,
-html[data-theme="dark"] .banner-thumbnail-wrapper .desc-wrapper strong {
-  color: var(--fcfl-hero-text);
+html[data-theme="dark"] .banner-thumbnail-wrapper .desc-wrapper * {
+  color: #fff !important;
 }
 
 body.force-mobile-nav .theme-toggle {

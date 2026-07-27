@@ -41,6 +41,7 @@ describe("theme and homepage hero regression contract", () => {
     expect(globalCss).toContain("--fcfl-hero-text: #76cdd0");
     expect(globalCss).toMatch(/html\s*\{[^}]*background:\s*var\(--fcfl-navy\)/s);
     expect(globalCss).toMatch(/\.desc-wrapper p \+ p\s*\{[^}]*color:\s*var\(--fcfl-hero-text\)/s);
+    expect(globalCss).toMatch(/html\[data-theme="dark"\] \.banner-thumbnail-wrapper \.desc-wrapper,\s*html\[data-theme="dark"\] \.banner-thumbnail-wrapper \.desc-wrapper \*\s*\{[^}]*color:\s*#fff\s*!important/s);
     expect(pageCss).toMatch(/\.home-page \.index-section-wrapper\s*\{[^}]*box-sizing:\s*content-box/s);
     expect(pageCss).toMatch(/\.home-page \.index-section-wrapper \.content-inner\s*\{[^}]*padding:\s*0/s);
   });
