@@ -48,14 +48,20 @@ describe("GitHub Pages public preview", () => {
     expect(routeOutputPath("/about")).toBe("about/index.html");
   });
 
-  it("exposes a deterministic build command for the dedicated preview repository", async () => {
+  it("builds and publishes the isolated public artifact to the Fat Cat gh-pages branch", async () => {
     const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };
     const builder = await readFile(resolve(root, "scripts/build-github-pages-preview.mjs"), "utf8");
+    const workflow = await readFile(resolve(root, ".github/workflows/build-pages-preview.yml"), "utf8");
     expect(manifest.scripts?.["build:pages-preview"]).toBe("node ./scripts/build-github-pages-preview.mjs");
     expect(builder).toContain('const protectedPaths = new Set(["/member-portal", "/membership2"]);');
     expect(builder).toContain('await writeFile(join(output, ".nojekyll"), "")');
     expect(builder).not.toContain("private-content/");
+    expect(workflow).toContain("contents: write");
+    expect(workflow).toContain("PAGES_BASE_PATH: /website");
+    expect(workflow).toContain("PREVIEW_SOURCE_SHA: ${{ github.sha }}");
+    expect(workflow).toContain("git push --force origin HEAD:gh-pages");
+    expect(workflow).not.toContain("private-content/");
   });
 });

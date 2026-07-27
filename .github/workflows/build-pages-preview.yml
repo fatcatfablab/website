@@ -1,0 +1,64 @@
+name: Build Fat Cat GitHub Pages preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fatcat-pages-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production server
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          HOST=127.0.0.1 PORT=4321 node dist/server/entry.mjs > /tmp/fcfl-preview-server.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4321/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/fcfl-preview-server.log
+          exit 1
+
+      - name: Snapshot public routes
+        env:
+          PREVIEW_ORIGIN: http://127.0.0.1:4321
+          PAGES_BASE_PATH: /website
+          PREVIEW_SOURCE_SHA: ${{ github.sha }}
+        run: npm run build:pages-preview
+
+      - name: Publish gh-pages branch
+        run: |
+          auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+          cd dist-pages
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.https://github.com/.extraheader "$auth_header"
+          git add --all
+          git commit -m "deploy: ${GITHUB_SHA}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin HEAD:gh-pages
