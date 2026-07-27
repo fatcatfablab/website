@@ -13,6 +13,7 @@ describe("GitHub Pages public preview", () => {
   it("rewrites root-relative routes and assets beneath the project Pages base", () => {
     const html = `<!doctype html><html><head></head><body>
       <a href="/about">About</a>
+      <a href="/classes">Classes</a>
       <img src="/assets/photo.jpg" data-image="/assets/photo.jpg" srcset="/assets/photo.jpg 1x, /assets/photo@2x.jpg 2x">
       <video poster='/media/poster.jpg'></video>
       <div style="background-image:url('/assets/background.jpg')"></div>
@@ -21,6 +22,8 @@ describe("GitHub Pages public preview", () => {
     const rewritten = rewriteHtmlForProjectPages(html, "/website/");
 
     expect(rewritten).toContain('href="/website/about"');
+    expect(rewritten).toContain('href="/website/classes-events"');
+    expect(rewritten).not.toContain('href="/website/classes"');
     expect(rewritten).toContain('src="/website/assets/photo.jpg"');
     expect(rewritten).toContain('data-image="/website/assets/photo.jpg"');
     expect(rewritten).toContain('srcset="/website/assets/photo.jpg 1x, /website/assets/photo@2x.jpg 2x"');

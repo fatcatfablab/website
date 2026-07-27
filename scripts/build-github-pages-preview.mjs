@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultOrigin = "http://127.0.0.1:4321";
 const protectedPaths = new Set(["/member-portal", "/membership2"]);
+const publicRedirects = new Map([["/classes", "/classes-events"]]);
 
 export function normalizeBasePath(value = "") {
   const trimmed = String(value).trim().replace(/^\/+|\/+$/g, "");
@@ -14,6 +15,14 @@ export function normalizeBasePath(value = "") {
 export function rewriteHtmlForProjectPages(html, basePath) {
   const base = normalizeBasePath(basePath);
   let rewritten = String(html);
+
+  for (const [from, to] of publicRedirects) {
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    rewritten = rewritten.replace(
+      new RegExp(`(href\\s*=\\s*["'])${escaped}(["'])`, "gi"),
+      `$1${to}$2`,
+    );
+  }
 
   for (const path of protectedPaths) {
     const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
