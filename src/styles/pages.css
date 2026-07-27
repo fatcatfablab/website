@@ -121,6 +121,14 @@
   object-position: center;
 }
 
+.banner-thumbnail-wrapper [data-hero-video] {
+  opacity: 0;
+}
+
+.banner-thumbnail-wrapper.is-poster-ready [data-hero-video] {
+  opacity: 1;
+}
+
 .banner-thumbnail-wrapper .background-video-embed {
   top: 50%;
   left: 50%;

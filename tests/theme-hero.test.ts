@@ -87,7 +87,10 @@ describe("theme and homepage hero regression contract", () => {
     expect(css).toMatch(/\.home-page \.index-section:first-child\s*>\s*\.banner-thumbnail-wrapper\s*\{[^}]*background:\s*#f55a00/s);
     expect(css).toMatch(/\.background-video-poster\s*\{[^}]*object-fit:\s*cover[^}]*opacity:\s*1/s);
     expect(css).toMatch(/\.background-video-poster\.is-hidden\s*\{[^}]*opacity:\s*0/s);
+    expect(css).toMatch(/\[data-hero-video\]\s*\{[^}]*opacity:\s*0/s);
+    expect(css).toMatch(/\.is-poster-ready\s+\[data-hero-video\]\s*\{[^}]*opacity:\s*1/s);
     expect(script).toContain("2_500");
+    expect(script).toContain('add("is-poster-ready")');
     expect(script).toContain('add("is-hidden")');
     expect(script).toContain('addEventListener("loadeddata"');
   });

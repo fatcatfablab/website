@@ -699,6 +699,7 @@ describe("shared site chrome browser geometry", () => {
         posterOpacity: getComputedStyle(poster).opacity,
         posterVisibility: getComputedStyle(poster).visibility,
         posterHidden: poster.classList.contains("is-hidden"),
+        videoOpacity: getComputedStyle(video).opacity,
         videoReadyState: video.readyState,
         titleFontFamily: getComputedStyle(title).fontFamily,
         overflow: document.documentElement.scrollWidth - innerWidth,
@@ -709,6 +710,7 @@ describe("shared site chrome browser geometry", () => {
     expect(initial.background).toBe("rgb(245, 90, 0)");
     expect(initial.posterHidden).toBe(false);
     expect(initial.posterOpacity).toBe("1");
+    expect(initial.videoOpacity).toBe("0");
     expect(initial.titleFontFamily).toContain("freight-sans-pro");
     expect(initial.titleFontFamily).toContain("Helvetica");
     expect(initial.titleFontFamily).toContain("sans-serif");
@@ -720,6 +722,7 @@ describe("shared site chrome browser geometry", () => {
     expect(posterState.posterComplete).toBe(true);
     expect(posterState.posterOpacity).toBe("1");
     expect(posterState.posterHidden).toBe(false);
+    expect(posterState.videoOpacity).toBe("1");
     await page.screenshot({ path: resolve(qaDir, "home-cold-poster-1280x900.png"), fullPage: false });
 
     await page.waitForTimeout(1_500);
@@ -730,6 +733,7 @@ describe("shared site chrome browser geometry", () => {
     expect(revealed.posterHidden).toBe(true);
     expect(revealed.posterOpacity).toBe("0");
     expect(revealed.posterVisibility).toBe("hidden");
+    expect(revealed.videoOpacity).toBe("1");
     expect(revealed.videoReadyState).toBeGreaterThanOrEqual(2);
     expect(revealed.overflow).toBe(0);
     await page.screenshot({ path: resolve(qaDir, "home-cold-video-1280x900.png"), fullPage: false });
