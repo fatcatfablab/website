@@ -11,6 +11,8 @@ describe("Maker Workshops", () => {
     expect(page).toContain('data-step="1"');
     expect(page).toContain('data-step="2"');
     expect(page).toContain('data-step="3"');
+    expect(page).toContain('<h1 id="intro-title">Workshop and class ideas!</h1>');
+    expect(page).not.toContain("What should we make");
     expect(page).toContain('type="email"');
     expect(page).toContain("Optional");
     expect(page).toContain("No idea right now");
