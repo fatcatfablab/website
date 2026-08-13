@@ -1,0 +1,30 @@
+{
+  "basePath": "/website",
+  "commit": "4a3a68332f85b75ba8e05b9d45305894e4cc1f61",
+  "generatedAt": "2026-08-13T20:11:36.731Z",
+  "routes": [
+    "/",
+    "/3d-printing",
+    "/about",
+    "/calendar",
+    "/classes-events",
+    "/cnc-router",
+    "/contact",
+    "/digital-fabrication",
+    "/electronics",
+    "/electronics-info",
+    "/equipment-list",
+    "/fabrics-arts-and-crafts",
+    "/faqs",
+    "/guest-pass",
+    "/home",
+    "/laser-cutter",
+    "/maker-workshops",
+    "/members",
+    "/membership",
+    "/photography",
+    "/reservation-calendar",
+    "/second-day",
+    "/services-payment"
+  ]
+}
