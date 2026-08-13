@@ -16,6 +16,9 @@ describe("Maker Workshops", () => {
     expect(page).toContain("No idea right now");
     expect(page).toContain('id="refresh-button"');
     expect(page).toContain('id="save-rsvps"');
+    expect(page).toContain("<span>Maker Workshops</span>");
+    expect(page).toContain('type="button">Save <span aria-hidden="true">→</span>');
+    expect(page).not.toContain("Save RSVPs");
     expect(page).toContain("fcfl-maker-workshops-api.pages.dev");
   });
 

@@ -31,7 +31,7 @@ try {
   await page.getByText("Step 3 of 3").waitFor();
   await page.getByText(title).waitFor();
   await page.getByText(title).click();
-  await page.getByRole("button", { name: /Save RSVPs/ }).click();
+  await page.getByRole("button", { name: /^Save$/ }).click();
   await page.getByText("RSVPs saved.").waitFor();
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${output}/desktop-list-saved.png`, fullPage: true });
