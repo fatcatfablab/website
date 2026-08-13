@@ -31,8 +31,9 @@ describe("Maker Workshops", () => {
     expect(css).not.toContain("grid-template-columns: repeat(2");
     expect(client).toContain('class="avatar"');
     expect(client).toContain("attendeeCount");
-    expect(client).toContain("Submitted by ${escapeHtml(workshop.submittedBy)}");
-    expect(css).toContain(".submitted-by");
+    expect(client).toContain('class="host-name">${escapeHtml(workshop.submittedBy)}');
+    expect(client).not.toContain("Submitted by");
+    expect(css).toContain(".host-name { color: var(--muted); font-size: 16px;");
     expect(client).toContain('sessionStorage.getItem("fcfl-maker-participant")');
     expect(client).toContain("showStep(3)");
     expect(client).toContain("loadWorkshops()");

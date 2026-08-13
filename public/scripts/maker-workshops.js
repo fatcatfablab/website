@@ -72,7 +72,7 @@
           <span class="card-content">
             <span class="card-heading">
               <strong>${escapeHtml(workshop.title)}</strong>
-              <span class="submitted-by">Submitted by ${escapeHtml(workshop.submittedBy)}</span>
+              <span class="host-name">${escapeHtml(workshop.submittedBy)}</span>
             </span>
             <span class="attendee-row">
               <span class="avatar-stack" aria-hidden="true">
