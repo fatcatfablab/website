@@ -61,7 +61,7 @@ export function routeOutputPath(route) {
 
 async function readPublicRoutes() {
   const pages = JSON.parse(await readFile(join(root, "src/data/pages.json"), "utf8"));
-  return [...new Set(["/", "/home", ...pages.map((page) => page.path)])]
+  return [...new Set(["/", "/home", "/maker-workshops", ...pages.map((page) => page.path)])]
     .filter((path) => path && !protectedPaths.has(path))
     .sort((left, right) => (left === "/" ? -1 : right === "/" ? 1 : left.localeCompare(right)));
 }

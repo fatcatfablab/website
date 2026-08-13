@@ -1,0 +1,14 @@
+{
+  "name": "fcfl-maker-workshops-api",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "prepare:pages": "node prepare-pages.mjs",
+    "deploy": "npm run prepare:pages && wrangler pages deploy dist --project-name fcfl-maker-workshops-api --branch main",
+    "db:local": "wrangler d1 migrations apply fcfl-maker-workshops --local",
+    "db:remote": "wrangler d1 migrations apply fcfl-maker-workshops --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  }
+}
