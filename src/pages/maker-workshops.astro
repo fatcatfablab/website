@@ -101,6 +101,15 @@ const description = "Suggest maker workshops and RSVP to the classes you would a
             <span aria-hidden="true">✓</span>
             <div><strong>RSVPs saved.</strong><br />We’ll see you in the workshop.</div>
           </div>
+          <form id="another-idea-form" class="another-idea-form">
+            <label for="another-workshop-idea">Submit another idea</label>
+            <div class="another-idea-row">
+              <input id="another-workshop-idea" name="anotherWorkshopIdea" type="text" minlength="2" maxlength="120" placeholder="Workshop or class idea" required />
+              <button class="secondary-button" type="submit">Add idea <span aria-hidden="true">→</span></button>
+            </div>
+            <p id="another-idea-error" class="form-error" role="alert"></p>
+            <p id="another-idea-success" class="another-idea-success" role="status" hidden>Idea added.</p>
+          </form>
         </section>
       </section>
 

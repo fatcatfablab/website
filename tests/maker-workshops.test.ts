@@ -16,6 +16,8 @@ describe("Maker Workshops", () => {
     expect(page).toContain("No idea right now");
     expect(page).toContain('id="refresh-button"');
     expect(page).toContain('id="save-rsvps"');
+    expect(page).toContain('id="another-idea-form"');
+    expect(page).toContain("Submit another idea");
     expect(page).toContain("<span>Maker Workshops</span>");
     expect(page).toContain('href="/maker-workshops" aria-label="Return to workshop results"');
     expect(page).toContain('type="button">Save <span aria-hidden="true">→</span>');
@@ -37,6 +39,8 @@ describe("Maker Workshops", () => {
     expect(client).toContain('sessionStorage.getItem("fcfl-maker-participant")');
     expect(client).toContain("showStep(3)");
     expect(client).toContain("loadWorkshops()");
+    expect(client).toContain('$("#another-idea-form").addEventListener("submit"');
+    expect(client).toContain('$("#another-workshop-idea")');
   });
 
   it("stores participants, workshop ideas, and RSVPs in D1 without exposing email in list responses", () => {

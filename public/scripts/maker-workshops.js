@@ -217,6 +217,37 @@
     }
   });
 
+  $("#another-idea-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    const input = $("#another-workshop-idea");
+    const error = $("#another-idea-error");
+    const success = $("#another-idea-success");
+    const title = input.value.trim();
+    error.textContent = "";
+    success.hidden = true;
+    if (title.length < 2) {
+      error.textContent = "Enter a workshop idea.";
+      input.focus();
+      return;
+    }
+    setBusy(button, true, "Adding…");
+    try {
+      await request("/api/workshops", {
+        method: "POST",
+        body: JSON.stringify({ participantId: state.participantId, title }),
+      });
+      input.value = "";
+      await loadWorkshops({ quiet: true });
+      success.hidden = false;
+      success.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (apiError) {
+      error.textContent = apiError.message;
+    } finally {
+      setBusy(button, false);
+    }
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && event.target.tagName !== "BUTTON" && state.step < 3) {
       const form = event.target.closest("form");
