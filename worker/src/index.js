@@ -60,6 +60,7 @@ async function listWorkshops(request, env) {
     SELECT
       w.id,
       w.title,
+      submitter.first_name AS submittedBy,
       w.created_at AS createdAt,
       COUNT(r.participant_id) AS attendeeCount,
       COALESCE(
@@ -72,9 +73,10 @@ async function listWorkshops(request, env) {
       ) AS attendees,
       MAX(CASE WHEN r.participant_id = ?1 THEN 1 ELSE 0 END) AS isAttending
     FROM workshops w
+    JOIN participants submitter ON submitter.id = w.suggested_by
     LEFT JOIN rsvps r ON r.workshop_id = w.id
     LEFT JOIN participants p ON p.id = r.participant_id
-    GROUP BY w.id
+    GROUP BY w.id, submitter.first_name
     ORDER BY attendeeCount DESC, w.created_at DESC
   `).bind(participantId || "").all();
 

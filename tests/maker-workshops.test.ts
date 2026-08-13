@@ -31,6 +31,8 @@ describe("Maker Workshops", () => {
     expect(css).not.toContain("grid-template-columns: repeat(2");
     expect(client).toContain('class="avatar"');
     expect(client).toContain("attendeeCount");
+    expect(client).toContain("Submitted by ${escapeHtml(workshop.submittedBy)}");
+    expect(css).toContain(".submitted-by");
     expect(client).toContain('sessionStorage.getItem("fcfl-maker-participant")');
     expect(client).toContain("showStep(3)");
     expect(client).toContain("loadWorkshops()");
@@ -46,6 +48,8 @@ describe("Maker Workshops", () => {
     expect(api).toContain('url.pathname === "/api/workshops"');
     expect(api).toContain('url.pathname === "/api/rsvps"');
     expect(api).toContain("ORDER BY attendeeCount DESC, w.created_at DESC");
+    expect(api).toContain("submitter.first_name AS submittedBy");
+    expect(api).toContain("JOIN participants submitter ON submitter.id = w.suggested_by");
     expect(api).not.toMatch(/json_object\([^)]*email/);
   });
 

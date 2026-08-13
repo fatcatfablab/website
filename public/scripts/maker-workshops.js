@@ -70,7 +70,10 @@
           <input type="checkbox" value="${workshop.id}" ${checked ? "checked" : ""} />
           <span class="card-check" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3 3 7-7" /></svg></span>
           <span class="card-content">
-            <strong>${escapeHtml(workshop.title)}</strong>
+            <span class="card-heading">
+              <strong>${escapeHtml(workshop.title)}</strong>
+              <span class="submitted-by">Submitted by ${escapeHtml(workshop.submittedBy)}</span>
+            </span>
             <span class="attendee-row">
               <span class="avatar-stack" aria-hidden="true">
                 ${visible.map((person) => `<span class="avatar" style="--avatar-hue:${avatarHue(person.firstName)}">${escapeHtml(initials(person.firstName))}</span>`).join("")}
