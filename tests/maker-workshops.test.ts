@@ -27,6 +27,8 @@ describe("Maker Workshops", () => {
     const css = source("public/styles/maker-workshops.css");
     const client = source("public/scripts/maker-workshops.js");
     expect(css).toContain("[hidden] { display: none !important; }");
+    expect(css).toContain(".workshop-list { display: grid; grid-template-columns: minmax(0, 1fr);");
+    expect(css).not.toContain("grid-template-columns: repeat(2");
     expect(client).toContain('class="avatar"');
     expect(client).toContain("attendeeCount");
     expect(client).toContain('sessionStorage.getItem("fcfl-maker-participant")');
@@ -43,6 +45,7 @@ describe("Maker Workshops", () => {
     expect(api).toContain('url.pathname === "/api/participants"');
     expect(api).toContain('url.pathname === "/api/workshops"');
     expect(api).toContain('url.pathname === "/api/rsvps"');
+    expect(api).toContain("ORDER BY attendeeCount DESC, w.created_at DESC");
     expect(api).not.toMatch(/json_object\([^)]*email/);
   });
 
